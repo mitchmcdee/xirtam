@@ -6,11 +6,11 @@ import sys
 import signal
 import pyglet
 import logging
-from model import Model
-from view import View
-from controller import Controller
-from settings import WINDOW_DIMENSIONS, LOG_LEVEL, FPS_LIMIT, IS_FULLSCREEN
-from simulation_parser import SimulationParser
+from xirtam.core.model import Model
+from xirtam.core.view import View
+from xirtam.core.controller import Controller
+from xirtam.core.settings import WINDOW_DIMENSIONS, LOG_LEVEL, FPS_LIMIT, IS_FULLSCREEN
+from xirtam.utils.parser import SimulationParser
 
 
 # Setup logger
@@ -18,24 +18,22 @@ LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-class Simulator(pyglet.window.Window):
+class SimulatorManager(pyglet.window.Window):
     """
-    A simulation window containing the simulation environment.
+    A controlling manager simulation window containing the simulation environment.
     """
 
-    def __init__(self, world_filepath, robot_filepath, motion_filepath):
+    def __init__(self, world_filepath, robot_filepath, motion_filepath, output_path):
+        signal.signal(signal.SIGINT, self.on_close)
         width, height = WINDOW_DIMENSIONS
-        super(Simulator, self).__init__(
-            width=width, height=height, resizable=True, fullscreen=IS_FULLSCREEN
-        )
+        super().__init__(width=width, height=height, resizable=True, fullscreen=IS_FULLSCREEN)
         # MVC
-        self.model = Model(world_filepath, robot_filepath, motion_filepath)
+        self.model = Model(world_filepath, robot_filepath, motion_filepath, output_path)
         self.view = View(self, self.model)
         self.controller = Controller(self.model, self.view)
         # Pyglet
         pyglet.clock.schedule(self.update)
         pyglet.clock.set_fps_limit(FPS_LIMIT)
-        signal.signal(signal.SIGINT, self.on_close)
 
     def run(self):
         """
@@ -96,10 +94,3 @@ class Simulator(pyglet.window.Window):
         The window contents must be redrawn.
         """
         self.controller.draw()
-
-
-if __name__ == "__main__":
-    parsed_args = SimulationParser().parse_args(sys.argv[1:])
-    LOGGER.info("Running simulation...")
-    Simulator(parsed_args.world_path, parsed_args.robot_path, parsed_args.motion_path).run()
-    LOGGER.info("Simulation finished.")

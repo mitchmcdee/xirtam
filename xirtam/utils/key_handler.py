@@ -3,7 +3,7 @@ Key handler objects for managing key presses.
 """
 import logging
 from enum import Enum
-from settings import Command
+from xirtam.core.settings import Command
 
 LOGGER = logging.getLogger(__name__)
 

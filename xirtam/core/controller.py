@@ -4,8 +4,8 @@ key handling) are further separated into additional modules.
 """
 import logging
 import pyglet
-from settings import Command
-from key_handler import KeyHandler, DebouncedKeyHandler
+from xirtam.core.settings import Command
+from xirtam.utils.key_handler import KeyHandler, DebouncedKeyHandler
 
 LOGGER = logging.getLogger(__name__)
 

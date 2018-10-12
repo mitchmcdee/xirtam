@@ -1,14 +1,15 @@
 """
 Module containing path planning components.
 """
+import os
 import csv
 import logging
 import pyglet
 import math
 import networkx as nx
-from robot import RobotConfig, Robot
-from utils import get_coerced_reader_row_helper
-from settings import (
+from xirtam.core.robot import RobotConfig, Robot
+from xirtam.utils.utils import get_coerced_reader_row_helper
+from xirtam.core.settings import (
     START_COLOUR,
     GOAL_COLOUR,
     EXECUTING_COLOUR,
@@ -30,7 +31,7 @@ class Planner:
     # TODO(mitch): tinker with this value? low is good!!
     GRAPH_SIZE_LIMIT = 3
 
-    def __init__(self, robot, world, motion_filepath):
+    def __init__(self, robot, world, motion_filepath, output_path):
         with open(motion_filepath) as motion_file:
             motion_reader = csv.reader(motion_file)
             get_motion_row = get_coerced_reader_row_helper(motion_reader, motion_filepath)
@@ -44,6 +45,13 @@ class Planner:
             self.goal_config = RobotConfig(robot, position, heading, foot_vertices, GOAL_COLOUR)
         self.robot = robot
         self.world = world
+        world_robot_dir = f'world-{self.world.__hash__()}/robot-{self.robot.__hash__()}'
+        self.output_path = os.path.join(output_path, world_robot_dir)
+        # Make ouput world-robot directory if it doesn't already exist
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
+        # Save valid regions bmp for the provided robot.
+        self.world.save_regions_bmp(self.robot, self.output_path)
         self.graph = nx.DiGraph()
         self.initialise()
 
@@ -122,7 +130,7 @@ class Planner:
         if self.current_config == self.goal_config:
             self.is_complete = True
             LOGGER.info("Got to goal!")
-            self.world.save_placements_bmp(self.current_config.robot)
+            self.world.save_placements_bmp(self.output_path)
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
         if self.world.is_valid_config(self.current_config):
@@ -134,7 +142,7 @@ class Planner:
             if self.previous_config is not None:
                 self.current_config = self.previous_config
                 self.graph.add_node(self.current_config)
-            self.world.save_placements_bmp(self.current_config.robot)
+            self.world.save_placements_bmp(self.output_path)
             # TODO(mitch): IDEA: if we hit a problem, move back to the last default config.
             # would require saving every 4 configs.
 

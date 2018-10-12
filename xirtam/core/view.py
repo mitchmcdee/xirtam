@@ -15,8 +15,8 @@ from pyglet.gl import (
     GL_SMOOTH,
     glShadeModel,
 )
-from camera import FirstPersonCamera
-from settings import FOV, NEAR_PLANE, FAR_PLANE, SHOW_FPS, IS_FULLSCREEN, WINDOW_DIMENSIONS
+from xirtam.core.camera import FirstPersonCamera
+from xirtam.core.settings import FOV, NEAR_PLANE, FAR_PLANE, SHOW_FPS, IS_FULLSCREEN, WINDOW_DIMENSIONS
 
 LOGGER = logging.getLogger(__name__)
 

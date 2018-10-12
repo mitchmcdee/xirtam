@@ -3,4 +3,5 @@
 __pycache__/
 .pytest_cache/
 data/generated_output/
+data/out/
 .DS_Store

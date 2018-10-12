@@ -1,10 +1,10 @@
 """
 Module containing a two-dimensional point class.
 """
-import vector2d
+from xirtam.utils.geometry.vector2d import Vector2D
 
 
-class Point2D(vector2d.Vector2D):
+class Point2D(Vector2D):
     """
     A two-dimensional point.
     """

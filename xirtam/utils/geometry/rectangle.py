@@ -1,10 +1,11 @@
 """
 Module containing a two-dimensional rectangle class.
 """
-import circle
-from utils import clamp
 from typing import Any
-from point2d import Point2D
+from xirtam.utils.utils import clamp
+from xirtam.utils.geometry.point2d import Point2D
+# Necessary to avoid circular import
+import xirtam.utils.geometry.circle
 
 
 class Rectangle:
@@ -53,7 +54,7 @@ class Rectangle:
         """
         Returns True if the other object intersects the rectangle, else False.
         """
-        if isinstance(other, circle.Circle):
+        if isinstance(other, xirtam.utils.geometry.circle.Circle):
             return self.intersects_circle(other)
         elif isinstance(other, Point2D):
             return self.intersects_point2d(other)
@@ -69,7 +70,7 @@ class Rectangle:
         # If the distance is less than the circle's radius, an intersection occurs
         return dx ** 2 + dy ** 2 <= circle.radius ** 2
 
-    def intersects_point2d(self, point: "Point2D") -> bool:
+    def intersects_point2d(self, point: Point2D) -> bool:
         """
         Returns True if the other point intersects the rectangle, else False.
         """

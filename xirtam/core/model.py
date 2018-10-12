@@ -3,9 +3,9 @@ Module containing generic Model related elements. More specific elements (such a
 the planner) are further separated into additional modules.
 """
 import logging
-from robot import Robot
-from world import World
-from planner import Planner
+from xirtam.core.robot import Robot
+from xirtam.core.world import World
+from xirtam.core.planner import Planner
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,12 +16,10 @@ class Model:
     which can be manipulated and interacted with.
     """
 
-    def __init__(self, world_filepath, robot_filepath, motion_filepath):
+    def __init__(self, world_filepath, robot_filepath, motion_filepath, output_path):
         self.world = World(world_filepath)
         self.robot = Robot(robot_filepath)
-        self.planner = Planner(self.robot, self.world, motion_filepath)
-        # Save valid regions bmp for the provided robot.
-        self.world.save_regions_bmp(self.robot)
+        self.planner = Planner(self.robot, self.world, motion_filepath, output_path)
 
     def handle_start(self):
         """

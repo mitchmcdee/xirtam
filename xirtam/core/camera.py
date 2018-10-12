@@ -4,7 +4,7 @@ Camera object for scene viewing and navigating.
 import logging
 import math
 import pyglet
-from settings import MOUSE_SENSITIVITY, MOVEMENT_SPEED, INVERTED_Y
+from xirtam.core.settings import MOUSE_SENSITIVITY, MOVEMENT_SPEED, INVERTED_Y
 
 LOGGER = logging.getLogger(__name__)
 

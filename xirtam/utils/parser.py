@@ -11,6 +11,9 @@ class SimulationParser(argparse.ArgumentParser):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        simulation_type_group = self.add_mutually_exclusive_group(required=True)
+        simulation_type_group.add_argument('-s', '--simulator', dest='simulator', action='store_true')
+        simulation_type_group.add_argument('-t', '--trainer', dest='trainer', action='store_true')
         self.add_argument(
             "-w", "--world", dest="world_path", type=str, required=True, help="Path to world file"
         )
@@ -32,4 +35,12 @@ class SimulationParser(argparse.ArgumentParser):
             type=str,
             required=True,
             help="Path to policy file",
+        )
+        self.add_argument(
+            "-o",
+            "--output",
+            dest="output_path",
+            type=str,
+            required=True,
+            help="Path to generated output folder",
         )

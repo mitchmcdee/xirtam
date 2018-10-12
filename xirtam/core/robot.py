@@ -6,19 +6,19 @@ import math
 import pyglet
 import csv
 import numpy as np
-from operator import gt, lt
-from circle import Circle
-from vector2d import Vector2D
-from point2d import Point2D
 from random import uniform
-from utils import (
+from operator import gt, lt
+from xirtam.utils.geometry.circle import Circle
+from xirtam.utils.geometry.vector2d import Vector2D
+from xirtam.utils.geometry.point2d import Point2D
+from xirtam.utils.utils import (
     clamp,
     get_circle_call,
     get_coerced_reader_row_helper,
     get_intersection_between_two_circles,
 )
-from settings import NUM_FOOT_POINTS, PLANNING_COLOUR, BODY_ALT_MODIFIER
-from world import World
+from xirtam.core.settings import NUM_FOOT_POINTS, PLANNING_COLOUR, BODY_ALT_MODIFIER
+from xirtam.core.world import World
 
 LOGGER = logging.getLogger(__name__)
 EPSILON_Z = (1e-2,)

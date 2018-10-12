@@ -9,10 +9,10 @@ import hashlib
 from PIL import Image, ImageDraw
 from enum import Enum
 from itertools import cycle
-from rectangle import Rectangle
-from point2d import Point2D
-from utils import get_coerced_reader_row_helper, get_circle_call, translate, get_translated_bounds
-from settings import (
+from xirtam.utils.geometry.rectangle import Rectangle
+from xirtam.utils.geometry.point2d import Point2D
+from xirtam.utils.utils import get_coerced_reader_row_helper, get_circle_call, translate, get_translated_bounds
+from xirtam.core.settings import (
     INVALID_COLOUR,
     VALID_COLOUR,
     NUM_FOOT_POINTS,
@@ -149,7 +149,7 @@ class World:
             )
         return is_valid_sample
 
-    def save_placements_bmp(self, robot):
+    def save_placements_bmp(self, folderpath):
         """
         Saves the foot placements as a bitmap file.
         """
@@ -176,18 +176,14 @@ class World:
             )
             left, top, right, bottom = list(map(int, translated_bounds))
             draw.ellipse((bottom, left, top, right), fill=OUTPUT_INVALID_COLOUR)
-        # Make world-robot directory if it doesn't already exist
-        world_robot_directory = f"generated_output/world-{self.__hash__()}/robot-{robot.__hash__()}"
-        if not os.path.exists(world_robot_directory):
-            os.makedirs(world_robot_directory)
         # Save unique image if it doesn't already exist
         image_hash = hashlib.sha512(image.tobytes()).hexdigest()
-        placements_filepath = world_robot_directory + f"/{image_hash}.bmp"
+        placements_filepath = os.path.join(folderpath, f"{image_hash}.bmp")
         if not os.path.exists(placements_filepath):
-            image.save(world_robot_directory + f"/{image_hash}.bmp")
+            image.save(placements_filepath)
             LOGGER.info("Saved placements!")
 
-    def save_regions_bmp(self, robot):
+    def save_regions_bmp(self, robot, folderpath):
         """
         Saves the regions as a bitmap file.
         """
@@ -211,11 +207,9 @@ class World:
             else:
                 colour = OUTPUT_INVALID_COLOUR
             draw.rectangle((bottom, left, top, right), fill=colour)
-        # Make world-robot directory if it doesn't already exist
-        world_robot_directory = f"generated_output/world-{self.__hash__()}/robot-{robot.__hash__()}"
-        if not os.path.exists(world_robot_directory):
-            os.makedirs(world_robot_directory)
-        image.save(world_robot_directory + "/regions.bmp")
+        regions_filepath = os.path.join(folderpath, "regions.bmp")
+        print(folderpath, regions_filepath)
+        image.save(regions_filepath)
         LOGGER.info("Saved regions!")
 
     def draw(self):
