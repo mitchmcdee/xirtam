@@ -7,19 +7,20 @@ from PIL import Image
 from skimage.io import imread
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # Constants
 base_data_dir = './data/generated_output/world-5546682508642403194/robot--4209387126734636757/'
 image_size = (100, 100)
 input_shape = (*image_size, 1)
-epochs = 3
+epochs = 2
 batch_size = 256
 test_split = 0.1
 
 # Rangle data
 x = []
 y = []
-for filename in os.listdir(base_data_dir):
+for filename in tqdm(list(os.listdir(base_data_dir))):
     _, extension = os.path.splitext(filename)
     if extension != '.bmp':
         continue
@@ -28,7 +29,6 @@ for filename in os.listdir(base_data_dir):
         y.append(image)
     else:
         x.append(image)
-    print('x:', len(x), 'y:', len(y))
 y *= len(x)
 x = np.array(x)
 y = np.array(y)
