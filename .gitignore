@@ -1,0 +1,6 @@
+*.prof
+*.py[cod]
+__pycache__/
+.pytest_cache/
+data/generated_output/
+.DS_Store
