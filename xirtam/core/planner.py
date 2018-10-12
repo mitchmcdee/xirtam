@@ -45,7 +45,7 @@ class Planner:
             self.goal_config = RobotConfig(robot, position, heading, foot_vertices, GOAL_COLOUR)
         self.robot = robot
         self.world = world
-        world_robot_dir = f'world-{self.world.__hash__()}/robot-{self.robot.__hash__()}'
+        world_robot_dir = f"world-{self.world.__hash__()}/robot-{self.robot.__hash__()}"
         self.output_path = os.path.join(output_path, world_robot_dir)
         # Make ouput world-robot directory if it doesn't already exist
         if not os.path.exists(self.output_path):

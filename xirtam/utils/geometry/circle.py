@@ -4,6 +4,7 @@ Module containing a two-dimensional circle class.
 from typing import Union, Any
 from xirtam.utils.utils import clamp
 from xirtam.utils.geometry.point2d import Point2D
+
 # Necessary to avoid circular import
 import xirtam.utils.geometry.rectangle
 
