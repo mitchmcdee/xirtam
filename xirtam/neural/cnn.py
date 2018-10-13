@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D
+from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dropout
 from keras.models import Sequential
 from keras.datasets import mnist
 from PIL import Image
@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # Constants
-base_data_dir = './data/generated_output/world-5546682508642403194/robot--4209387126734636757/'
+base_data_dir = './data/out/world-5546682508642403194/robot--4209387126734636757/'
 image_size = (100, 100)
 input_shape = (*image_size, 1)
-epochs = 2
+epochs = 5
 batch_size = 256
 test_split = 0.1
 
@@ -27,6 +27,8 @@ for filename in tqdm(list(os.listdir(base_data_dir))):
     image = imread(base_data_dir + filename , as_gray=True)
     if filename == 'regions.bmp':
         y.append(image)
+        # # TODO(mitch): remove this \/
+        # break
     else:
         x.append(image)
 y *= len(x)
@@ -38,49 +40,50 @@ x = np.reshape(x, (len(x), *input_shape))
 y = np.reshape(y, (len(y), *input_shape))
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split)
 
-# Build autoencoder
-autoencoder = Sequential()
-
-# Encoder
-autoencoder.add(Conv2D(filters=16, kernel_size=(3, 3), padding='same', activation='relu', input_shape=input_shape))
-autoencoder.add(MaxPooling2D(pool_size=(2, 2), padding='same'))
-autoencoder.add(Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-autoencoder.add(MaxPooling2D(pool_size=(2, 2), padding='same'))
-autoencoder.add(Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-autoencoder.add(MaxPooling2D(pool_size=(2, 2), padding='same'))
-
-# Decoder
-autoencoder.add(Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-autoencoder.add(UpSampling2D(size=(2, 2)))
-autoencoder.add(Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-autoencoder.add(UpSampling2D(size=(2, 2)))
-autoencoder.add(Conv2D(filters=16, kernel_size=(3, 3), activation='relu'))
-autoencoder.add(UpSampling2D(size=(2, 2)))
-autoencoder.add(Conv2D(filters=1, kernel_size=(3, 3), padding='same', activation='sigmoid'))
+# Build fully convolutional network
+fcn = Sequential()
+fcn.add(Conv2D(16, (3, 3), padding='same', activation='relu', input_shape=input_shape))
+fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+fcn.add(Conv2D(16, (3, 3), padding='same', activation='relu'))
+fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+fcn.add(Conv2D(16, (3, 3), padding='same', activation='relu'))
+fcn.add(UpSampling2D((2, 2)))
+fcn.add(Conv2D(16, (3, 3), padding='same', activation='relu'))
+fcn.add(UpSampling2D((2, 2)))
+fcn.add(Conv2D(1, (1, 1), padding='same', activation='sigmoid'))
 
 # Compile and fit
-autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
-autoencoder.fit(x_train, x_train,
-                epochs=epochs,
-                batch_size=batch_size,
-                shuffle=True,
-                validation_data=(x_test, x_test))
+fcn.compile(optimizer='adadelta', loss='binary_crossentropy')
+fcn.summary()
+fcn.fit(x_train, y_train,
+        verbose=1,
+        epochs=epochs,
+        batch_size=batch_size,
+        shuffle=True,
+        validation_data=(x_test, y_test))
 
 # Visually evaluate results
-decoded_imgs = autoencoder.predict(x_test)
+predictions = fcn.predict(x_test)
 n = 10
-plt.figure(figsize=(20, 4))
+plt.figure(figsize=(20, 6))
 for i in range(1, n + 1):
     # display original
-    ax = plt.subplot(2, n, i)
+    ax = plt.subplot(3, n, i + 0 * n)
     plt.imshow(x_test[i].reshape(*image_size))
     plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 
-    # display reconstruction
-    ax = plt.subplot(2, n, i + n)
-    plt.imshow(decoded_imgs[i].reshape(*image_size))
+    # display truth
+    ax = plt.subplot(3, n, i + 1 * n)
+    plt.imshow(y_test[i].reshape(*image_size))
+    plt.gray()
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    # display prediction
+    ax = plt.subplot(3, n, i + 2 * n)
+    plt.imshow(predictions[i].reshape(*image_size))
     plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
