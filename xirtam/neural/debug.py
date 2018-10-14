@@ -27,7 +27,7 @@ if net == "resnet50_8s":
     model, stride = resnet50_8s_fcn(n_classes)
 
 if model_input_dir != "":
-    model.load_weights(model_input_dir + "best_weights.hdf5")
+    model.load_weights(model_input_dir + "final_weights.hdf5")
 
 img_id = 0
 n_rows = 5

@@ -124,3 +124,4 @@ model.fit(
     batch_size=args.batch_size,
     shuffle=True,
 )
+model.save(model_input_dir + "final_weights.hdf5")

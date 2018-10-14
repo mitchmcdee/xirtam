@@ -1,7 +1,7 @@
 import keras.backend as K
 from keras.engine import Layer
 
-from keras.layers import Input, Dropout, merge
+from keras.layers import Input, Dropout, add
 from keras.layers.convolutional import (
     Convolution2D,
     UpSampling2D,
@@ -114,7 +114,7 @@ def resnet50_16s_fcn(n_classes, model_input=None):
     x = Convolution2D(n_classes, 5, 5, name="pred_up_16", init="zero", border_mode="same")(x)
 
     # merge classifiers
-    x = merge([x, base_model.get_layer("pred_32s").output], mode="sum")
+    x = add([x, base_model.get_layer("pred_32s").output])
     x = Softmax4D(name="pred_16s", axis=-1)(x)
 
     model = Model(input=base_model.input, output=x)
@@ -173,7 +173,7 @@ def resnet50_8s_fcn(n_classes, model_input=None):
     x = Convolution2D(n_classes, 5, 5, name="pred_up_8", init="zero", border_mode="same")(x)
 
     # merge classifiers
-    x = merge([x, base_model.get_layer("pred").output], mode="sum")
+    x = add([x, base_model.get_layer("pred_16s").output])
     x = Softmax4D(name="pred_8s", axis=-1)(x)
 
     model = Model(input=base_model.input, output=x)
