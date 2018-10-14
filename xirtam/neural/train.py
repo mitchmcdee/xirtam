@@ -43,7 +43,7 @@ def parse_args():
         "-mo",
         "--model_output",
         help="Where to save the trained model?",
-        default="./work/fcn_models/",
+        default="./data/models/",
     )
 
     parser.add_argument("-id", "--exp_id", help="Experiment id", required=True)
@@ -110,7 +110,7 @@ elif args.opt == "SGD_Aggr":
     opt = SGD(lr=learning_rate, momentum=0.99)
 
 # model.compile(optimizer=opt, loss=fcn_xent_nobg, metrics=[mean_acc])
-model.compile(optimizer=opt, loss="binary_crossentropy", metrics=[mean_acc])
+model.compile(optimizer=opt, loss="binary_crossentropy", metrics=[mean_acc, pixel_acc])
 
 print(model.summary())
 
@@ -124,4 +124,4 @@ model.fit(
     batch_size=args.batch_size,
     shuffle=True,
 )
-model.save(model_input_dir + "final_weights.hdf5")
+model.save(model_input_dir + "/final_weights.hdf5")

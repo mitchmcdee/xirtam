@@ -2,6 +2,6 @@
 *.py[cod]
 __pycache__/
 .pytest_cache/
-data/generated_output/
+data/models/
 data/out/
 .DS_Store
