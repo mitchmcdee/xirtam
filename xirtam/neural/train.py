@@ -10,9 +10,9 @@ import keras.backend as K
 from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau
 from keras.optimizers import Adam, SGD
 
-from model_fns import resnet50_fn, testnet_fn, resnet50_16s_fn, resnet50_8s_fn
+from model_fcns import resnet50_fcn, testnet_fcn, resnet50_16s_fcn, resnet50_8s_fcn
 from data_generator import seg_data_generator
-from loss_fns import fcn_xent, fcn_xent_nobg, pixel_acc, mean_acc
+from loss_fcns import fcn_xent, fcn_xent_nobg, pixel_acc, mean_acc
 import utils
 
 
@@ -43,7 +43,7 @@ def parse_args():
         "-mo",
         "--model_output",
         help="Where to save the trained model?",
-        default="./work/fn_models/",
+        default="./work/fcn_models/",
     )
 
     parser.add_argument("-id", "--exp_id", help="Experiment id", required=True)
@@ -66,16 +66,16 @@ n_classes = 3
 
 # create model
 if args.net == "resnet50":
-    model, stride = resnet50_fn(n_classes)
+    model, stride = resnet50_fcn(n_classes)
 
 if args.net == "resnet50_16s":
-    model, stride = resnet50_16s_fn(n_classes, args.model_input)
+    model, stride = resnet50_16s_fcn(n_classes, args.model_input)
 
 if args.net == "resnet50_8s":
-    model, stride = resnet50_8s_fn(n_classes, args.model_input)
+    model, stride = resnet50_8s_fcn(n_classes, args.model_input)
 
 if args.net == "testnet":
-    model, stride = testnet_fn(n_classes)
+    model, stride = testnet_fcn(n_classes)
 
 # create data generators
 img_list = os.listdir(args.img_dir)
@@ -110,7 +110,7 @@ elif args.opt == "SGD_Aggr":
     opt = SGD(lr=learning_rate, momentum=0.99)
 
 # model.compile(optimizer=opt, loss=fcn_xent_nobg, metrics=[mean_acc])
-model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mean_acc])
+model.compile(optimizer=opt, loss="binary_crossentropy", metrics=[mean_acc])
 
 print(model.summary())
 
