@@ -233,7 +233,7 @@ def testnet_fcn(n_classes):
     return model, stride
 
 
-def alexnet_fcn():
+def alexnet_fcn(n_classes):
     fcn = Sequential()
     fcn.add(Conv2D(64, (3, 3), padding='same', activation='relu', input_shape=(None, None, 3)))
     fcn.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
@@ -241,11 +241,11 @@ def alexnet_fcn():
     fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
     fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
     fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
-    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
     fcn.add(UpSampling2D((2, 2)))
-    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
-    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
     fcn.add(UpSampling2D((2, 2)))
-    fcn.add(Conv2D(3, (1, 1), padding='same', activation='sigmoid'))
+    fcn.add(Conv2D(n_classes, (1, 1), padding='same', activation='sigmoid'))
     return fcn, 1

@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("-d", "--img_dir", help="Directory containing the images", required=True)
 
     parser.add_argument(
-        "-mo",
+        "-mi",
         "--model_input_dir",
         help="Where to find the trained model?",
         default="./data/models/testing",
@@ -48,7 +48,7 @@ if args.net == "resnet50_8s":
     model, stride = resnet50_8s_fcn(n_classes)
 
 if args.net == "alexnet":
-    model, stride = alexnet_fcn()
+    model, stride = alexnet_fcn(n_classes)
 
 model.load_weights(args.model_input_dir + "/final_weights.hdf5")
 

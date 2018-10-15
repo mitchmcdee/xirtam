@@ -75,7 +75,7 @@ if args.net == "testnet":
     model, stride = testnet_fcn(n_classes)
 
 if args.net == "alexnet":
-    model, stride = alexnet_fcn()
+    model, stride = alexnet_fcn(n_classes)
 
 # create data generators
 img_list = os.listdir(args.img_dir)

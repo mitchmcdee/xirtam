@@ -9,8 +9,11 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+
 # Constants
-base_data_dir = './data/out/world-5546682508642403194/robot--4209387126734636757/'
+training = False
+model_dir = './data/models/alexnet/'
+base_data_dir = './data/out/robot--4209387126734636757/world-5546682508642403194/'
 image_size = (128, 128)
 input_shape = (*image_size, 1)
 epochs = 5
@@ -46,23 +49,27 @@ fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
 fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
 fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
 fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
-fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
+fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
 fcn.add(UpSampling2D((2, 2)))
-fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
-fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
+fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
 fcn.add(UpSampling2D((2, 2)))
 fcn.add(Conv2D(1, (1, 1), padding='same', activation='sigmoid'))
 
-# Compile and fit
-fcn.compile(optimizer='adadelta', loss='binary_crossentropy')
-fcn.summary()
-fcn.fit(x_train, y_train,
-        verbose=1,
-        epochs=epochs,
-        batch_size=batch_size,
-        shuffle=True,
-        validation_data=(x_test, y_test))
+if training:
+    # Compile and fit
+    fcn.compile(optimizer='adadelta', loss='binary_crossentropy')
+    fcn.summary()
+    fcn.fit(x_train, y_train,
+            verbose=1,
+            epochs=epochs,
+            batch_size=batch_size,
+            shuffle=True,
+            validation_data=(x_test, y_test))
+    fcn.save(model_dir + "final_weights.hdf5")
+else:
+    fcn.load_weights(model_dir + "final_weights.hdf5")
 
 # Visually evaluate results
 predictions = fcn.predict(x_test)
