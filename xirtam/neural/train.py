@@ -10,7 +10,7 @@ import keras.backend as K
 from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau
 from keras.optimizers import Adam, SGD
 
-from model_fcns import resnet50_fcn, testnet_fcn, resnet50_16s_fcn, resnet50_8s_fcn
+from model_fcns import resnet50_fcn, testnet_fcn, resnet50_16s_fcn, resnet50_8s_fcn, alexnet_fcn
 from data_generator import seg_data_generator
 from loss_fcns import fcn_xent, fcn_xent_nobg, pixel_acc, mean_acc
 import utils
@@ -73,6 +73,9 @@ if args.net == "resnet50_8s":
 
 if args.net == "testnet":
     model, stride = testnet_fcn(n_classes)
+
+if args.net == "alexnet":
+    model, stride = alexnet_fcn()
 
 # create data generators
 img_list = os.listdir(args.img_dir)

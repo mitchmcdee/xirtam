@@ -7,7 +7,7 @@ import pandas as pd
 import tensorflow as tf
 import keras.backend as K
 from keras.models import Model
-from model_fcns import resnet50_fcn, resnet50_16s_fcn, resnet50_8s_fcn
+from model_fcns import resnet50_fcn, resnet50_16s_fcn, resnet50_8s_fcn, alexnet_fcn
 from data_generator import seg_data_generator
 import utils
 from skimage.color import rgb2grey
@@ -46,6 +46,9 @@ if args.net == "resnet50_16s":
 
 if args.net == "resnet50_8s":
     model, stride = resnet50_8s_fcn(n_classes)
+
+if args.net == "alexnet":
+    model, stride = alexnet_fcn()
 
 model.load_weights(args.model_input_dir + "/final_weights.hdf5")
 

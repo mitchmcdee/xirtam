@@ -1,7 +1,7 @@
 import keras.backend as K
 from keras.engine import Layer
-
-from keras.layers import Input, Dropout, add
+from keras.models import Sequential
+from keras.layers import Input, Dropout, add, Conv2D, MaxPooling2D
 from keras.layers.convolutional import (
     Convolution2D,
     UpSampling2D,
@@ -10,10 +10,8 @@ from keras.layers.convolutional import (
     Deconvolution2D,
 )
 from keras.layers.core import Activation
-
 from keras.applications.resnet50 import ResNet50
 from keras.models import Model, load_model
-
 import numpy as np
 
 
@@ -233,3 +231,21 @@ def testnet_fcn(n_classes):
     model = Model(input=input_tensor, output=x)
 
     return model, stride
+
+
+def alexnet_fcn():
+    fcn = Sequential()
+    fcn.add(Conv2D(64, (3, 3), padding='same', activation='relu', input_shape=(None, None, 3)))
+    fcn.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
+    fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+    fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
+    fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+    fcn.add(UpSampling2D((2, 2)))
+    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+    fcn.add(Conv2D(256, (3, 3), padding='same', activation='relu'))
+    fcn.add(UpSampling2D((2, 2)))
+    fcn.add(Conv2D(3, (1, 1), padding='same', activation='sigmoid'))
+    return fcn, 1
