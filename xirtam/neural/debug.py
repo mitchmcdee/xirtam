@@ -16,9 +16,7 @@ from skimage.color import rgb2grey
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "-n", "--net", help="Net used to generate model", default="resnet50_8s"
-    )
+    parser.add_argument("-n", "--net", help="Net used to generate model", default="resnet50_8s")
 
     parser.add_argument("-d", "--img_dir", help="Directory containing the images", required=True)
 
@@ -58,7 +56,7 @@ n_cols = 2
 # Load images
 img_list = os.listdir(args.img_dir)
 random.shuffle(img_list)
-img_list = img_list[:n_rows * n_cols]
+img_list = img_list[: n_rows * n_cols]
 x_test, y_test = seg_data_generator(stride, n_classes, args.img_dir, img_list, preprocess=False)
 x_test = iter(x_test)
 y_test = iter(y_test)

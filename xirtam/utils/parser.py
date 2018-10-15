@@ -20,33 +20,24 @@ class SimulationParser(argparse.ArgumentParser):
         )
         self.add_argument(
             "-w",
-            "--world",
-            dest="world_path",
+            "--world_path",
             type=str,
             help="Path to world file",
-            default="/data/config/test.world",
+            default="./data/config/test.world",
         )
         self.add_argument(
             "-ro",
-            "--robot",
-            dest="robot_path",
+            "--robot_path",
             type=str,
             help="Path to robot file",
-            default="/data/config/test.robot",
-        )
-        self.add_argument(
-            "-m",
-            "--motion",
-            dest="motion_path",
-            type=str,
-            help="Path to motion file",
-            default="/data/config/test.motion",
+            default="./data/config/test.robot",
         )
         self.add_argument(
             "-o",
-            "--output",
-            dest="output_path",
+            "--output_path",
             type=str,
             help="Path to generated output folder",
-            default="/data/out/",
+            default="./data/out/",
         )
+        self.add_argument("-p", "--policy_model", type=str, help="Path to policy model file")
+        self.add_argument("-m", "--motion_path", type=str, help="Path to motion file")
