@@ -80,8 +80,6 @@ class Robot:
             # Note: Since we're using radians, this is relative to the unit circle, thus the
             # negative sign to ensure we're incrementing clockwise.
             angle = -(foot_index * 2 + 1) * (math.pi / 4)
-            # TODO(mitch): add randomness to foot offset? Or maybe just implement backpedal idea?
-            # offset = Point2D.from_angle(angle) * uniform(self.femur_length / 2, 3 * self.femur_length / 2)
             offset = Point2D.from_angle(angle + heading) * self.femur_length
             foot_vertices.append(position + offset)
         return RobotConfig(self, position, heading, foot_vertices, PLANNING_COLOUR)

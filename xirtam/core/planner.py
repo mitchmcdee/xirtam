@@ -53,6 +53,7 @@ class Planner:
         # Save valid regions bmp for the provided robot.
         self.world.save_regions_bmp(self.robot, self.output_path)
         self.graph = nx.DiGraph()
+        self.previous_configs = []
         self.initialise()
 
     def initialise(self):
@@ -66,7 +67,7 @@ class Planner:
         self.is_complete = False
         self.current_config = self.start_config
         self.reset_graph()
-        self.previous_config = None
+        self.previous_configs.clear()
         self.last_sampled_config = None
 
     def reset_graph(self):
@@ -126,7 +127,7 @@ class Planner:
         if not is_training and self.time_since_last_execute < (1 / EXECUTION_FPS_LIMIT):
             return
         self.time_since_last_execute = 0
-        # Check if we're at goal
+        # If we're at goal, completed.
         if self.current_config == self.goal_config:
             self.is_complete = True
             LOGGER.info("Got to goal!")
@@ -134,17 +135,22 @@ class Planner:
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
         if self.world.is_valid_config(self.current_config):
-            self.previous_config = self.current_config.copy()
-            self.current_config = next(self.execution_path, None)
+            # Only keep past Robot.NUM_LEGS + BODY configurations for checkpointing.
+            if len(self.previous_configs) == Robot.NUM_LEGS + 1:
+                self.previous_configs.clear()
+            self.previous_configs.append(self.current_config.copy())
         else:
             LOGGER.info("Detected invalid region! Back-tracking now.")
-            self.is_executing = False
-            if self.previous_config is not None:
-                self.current_config = self.previous_config
-                self.graph.add_node(self.current_config)
+            self.execution_path = self.get_path_to_previous()
             self.world.save_placements_bmp(self.output_path)
-            # TODO(mitch): IDEA: if we hit a problem, move back to the last default config.
-            # would require saving every 4 configs.
+        next_config = next(self.execution_path, None)
+        # If we've exhausted the execution path, start planning again.
+        if next_config is None:
+            self.previous_configs.clear()
+            self.is_executing = False
+            return
+        # Take next step.
+        self.current_config = next_config
 
     def sample(self):
         """
@@ -179,26 +185,32 @@ class Planner:
         # Check if there's a path through configurations starting from current to goal
         if not nx.has_path(self.graph, self.current_config, self.goal_config):
             return
-        execution_path = self.get_execution_path()
+        execution_path = self.get_path_to_goal()
         if execution_path is None:
             return
         LOGGER.info("Found a path to the goal! Executing now.")
-        self.execution_path = iter(execution_path)
+        self.execution_path = execution_path
         self.is_executing = True
 
-    def get_execution_path(self):
+    def get_path_to_previous(self):
         """
-        Return the complete execution path fully interpolated.
+        Returns the interpolated path to the previous valid config.
+        """
+        return reversed([c for c in self.previous_configs])
+
+    def get_path_to_goal(self):
+        """
+        Returns the interpolated path to the goal config.
         """
         node_path = nx.shortest_path(self.graph, self.current_config, self.goal_config)
-        execution_path = []
+        path_to_goal = []
         for i in range(1, len(node_path)):
             previous, current = node_path[i - 1], node_path[i]
             interpolation = previous.interpolate(current, self.world)
             if interpolation is None:
                 return None
-            execution_path.extend(interpolation)
-        return execution_path
+            path_to_goal.extend(interpolation)
+        return iter(path_to_goal)
 
     def draw(self):
         """
@@ -211,7 +223,7 @@ class Planner:
         if self.last_sampled_config is not None:
             self.last_sampled_config.colour = PLANNING_COLOUR
             self.last_sampled_config.draw(batch)
-        if self.current_config not in (self.start_config, self.goal_config):
+        if all(self.current_config is not c for c in (None, self.start_config, self.goal_config)):
             self.current_config.colour = EXECUTING_COLOUR
             self.current_config.draw(batch)
         pyglet.gl.glLineWidth(ROBOT_LINE_WIDTH)
