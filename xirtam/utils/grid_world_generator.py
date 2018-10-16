@@ -41,7 +41,14 @@ def parse_args(args):
         "--max_invalid_cells",
         type=int,
         help="Maximum number of invalid cells in grid",
-        default=25,
+        default=30,
+    )
+    parser.add_argument(
+        "-g",
+        "--num_genesis_cells",
+        type=int,
+        help="Number of genesis cells in grid",
+        default=3,
     )
     parser.add_argument(
         "-i", "--invalid_perm", type=float, help="Invalid permeability amount", default=1.0e-10
@@ -79,43 +86,40 @@ def process_generation_args(test_id, *args, **kwargs):
     return args, kwargs
 
 
-def generate_world(num_rows, num_cols, max_invalid_cells):
+def generate_world(num_rows, num_cols, max_invalid_cells, num_genesis_cells):
     """
     Generates world cells to the given paramaters.
     """
-    genesis_cell = (randrange(0, num_cols), randrange(0, num_rows))
-    invalid_cells = [genesis_cell]
-    # Place invalid cells.
-    while len(invalid_cells) < max_invalid_cells and len(invalid_cells) < num_rows * num_cols:
+    invalid_cells = []
+    # Add genesis cells
+    for _ in range(num_genesis_cells):
+        invalid_cells.append((randrange(0, num_cols), randrange(0, num_rows)))
+    is_bad_cell = lambda c: c[0] in (-1, num_cols) or c[1] in (-1, num_rows) or c in invalid_cells
+    # Place invalid cells while under limit.
+    while len(invalid_cells) < max_invalid_cells:
         seed_x, seed_y = choice(invalid_cells)
         delta_x, delta_y = choice(DIRECTIONS)
         invalid_cell = (seed_x + delta_x, seed_y + delta_y)
         invalid_x, invalid_y = invalid_cell
-        if invalid_x in (-1, num_cols) or invalid_y in (-1, num_rows):
-            continue
-        if invalid_cell in invalid_cells:
+        if is_bad_cell(invalid_cell):
             continue
         invalid_cells.append(invalid_cell)
         # Fill any resulting voids.
-        for invalid_delta_x, invalid_delta_y in DIRECTIONS:
-            neighbour_cell = (invalid_x + invalid_delta_x, invalid_y + invalid_delta_y)
+        for x, y in DIRECTIONS:
+            neighbour_cell = (invalid_x + x, invalid_y + y)
             neighbour_x, neighbour_y = neighbour_cell
-            if neighbour_x in (-1, num_cols) or neighbour_y in (-1, num_rows):
+            if is_bad_cell(neighbour_cell):
                 continue
-            if neighbour_cell in invalid_cells:
-                continue
-            if any(
-                (
-                    (neighbour_x + x, neighbour_y + y) not in invalid_cells
-                    and neighbour_x + x not in (-1, num_cols)
-                    and neighbour_y + y not in (-1, num_rows)
-                )
-                for x, y in DIRECTIONS
-            ):
-                continue
-            invalid_cells.append(neighbour_cell)
-            if len(invalid_cells) >= max_invalid_cells:
+            # Check neighbour cell is surrounded indeed a void.
+            for x, y in DIRECTIONS:
+                outer_cell = (neighbour_x + x, neighbour_y + y)
+                outer_x, outer_y = outer_cell
+                if is_bad_cell(outer_cell):
+                    continue
                 break
+            # no break, neighbour cell is a void cell.
+            else:
+                invalid_cells.append(neighbour_cell)
     # Draw up grid and return.
     return [[1 if (i, j) in invalid_cells else 0 for i in range(num_cols)] for j in range(num_rows)]
 
@@ -154,11 +158,15 @@ def generate_motion(robot, world, world_cells):
     for x in range(num_cols):
         for y in range(num_rows):
             cell = (x, y)
+            if world_cells[y][x]:
+                continue
             graph.add_node(cell)
             for delta_x, delta_y in DIRECTIONS:
                 neighbour = (x + delta_x, y + delta_y)
                 neighbour_x, neighbour_y = neighbour
                 if neighbour_x in (-1, num_cols) or neighbour_y in (-1, num_rows):
+                    continue
+                if world_cells[neighbour_y][neighbour_x]:
                     continue
                 graph.add_node(neighbour)
                 graph.add_edge(cell, neighbour)
@@ -209,7 +217,9 @@ def grid_generator(generator_args):
     """
     args = parse_args(generator_args)
     robot = Robot(args.robot_filepath)
-    world_cells = generate_world(args.num_rows, args.num_cols, args.max_invalid_cells)
+    world_cells = generate_world(
+        args.num_rows, args.num_cols, args.max_invalid_cells, args.num_genesis_cells
+    )
     save_world(
         world_cells, args.world_output_filepath, args.cell_size, args.valid_perm, args.invalid_perm
     )

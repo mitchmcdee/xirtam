@@ -22,14 +22,26 @@ LOGGER = logging.getLogger(__name__)
 LEGS = range(Robot.NUM_LEGS)
 
 
+class OutputLimitException(Exception):
+    """
+    Raised when a trainer has completed all its training runs.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+
 class Planner:
     """
     A robot path planner. Utilises PRM during training and samples from a precomputed
     model during playback simulation.
     """
 
-    # TODO(mitch): tinker with this value? low is good!! might have to change for more complex graphs though
-    GRAPH_SIZE_LIMIT = 3
+    # TODO(mitch): tinker with this value?
+    # Note: low is good!! might have to change for more complex graphs though
+    GRAPH_SIZE_LIMIT = 5
+    # TODO(mitch): tinker with this value?
+    OUTPUT_LIMIT = 100
 
     def __init__(self, robot, world, motion_filepath, output_filepath):
         self.robot = robot
@@ -47,6 +59,7 @@ class Planner:
         self.world.save_regions_bmp(self.robot, self.output_filepath)
         self.graph = nx.DiGraph()
         self.previous_configs = []
+        self.output_count = 0
         self.initialise()
 
     def get_motion(self, robot, motion_filepath):
@@ -84,7 +97,6 @@ class Planner:
         """
         Resets the planner graph to its default state.
         """
-        LOGGER.info("Resetting graph!")
         self.graph.clear()
         self.graph.add_node(self.current_config)
         self.graph.add_node(self.goal_config)
@@ -120,6 +132,8 @@ class Planner:
             self.world.handle_reset()
             self.handle_reset()
             self.handle_start()
+        if is_training and self.output_count >= self.OUTPUT_LIMIT:
+            raise OutputLimitException()
         if self.is_paused:
             return
         if not self.is_started:
@@ -140,9 +154,10 @@ class Planner:
         self.time_since_last_execute = 0
         # If we're at goal, completed.
         if self.current_config == self.goal_config:
-            self.is_complete = True
             LOGGER.info("Got to goal!")
+            self.is_complete = True
             self.world.save_placements_bmp(self.output_filepath)
+            self.output_count += 1
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
         if self.world.is_valid_config(self.current_config):
@@ -154,6 +169,7 @@ class Planner:
             LOGGER.info("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
             self.world.save_placements_bmp(self.output_filepath)
+            self.output_count += 1
         next_config = next(self.execution_path, None)
         # If we've exhausted the execution path, start planning again.
         if next_config is None:
@@ -162,6 +178,7 @@ class Planner:
             return
         # Take next step.
         self.current_config = next_config
+        self.graph.add_node(self.current_config)
 
     def get_config_edges(self, config_a, config_b):
         """
@@ -182,13 +199,12 @@ class Planner:
         """
         # TODO(mitch): sample from precomputed model during playback, sample from config space
         # during training.
-        LOGGER.info("Sampling!")
         sample = self.robot.get_random_config(self.world)
         if not sample.is_valid(self.world):
             return
         self.last_sampled_config = sample
         new_config_edges = []
-        # Attempt to add sample to graph
+        # Attempt to add sample to nodes in graph.
         for config in self.graph.nodes:
             new_config_edges.extend(self.get_config_edges(sample, config))
         self.graph.add_edges_from(new_config_edges)
@@ -200,7 +216,7 @@ class Planner:
         if len(self.graph.nodes) >= self.GRAPH_SIZE_LIMIT:
             self.reset_graph()
         self.sample()
-        # Check if there's a path through configurations starting from current to goal
+        # Check if there's a path through configurations starting from current to goal.
         if not nx.has_path(self.graph, self.current_config, self.goal_config):
             return
         execution_path = self.get_path_to_goal()
