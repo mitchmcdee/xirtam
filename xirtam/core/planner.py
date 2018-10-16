@@ -88,6 +88,7 @@ class Planner:
         self.graph.clear()
         self.graph.add_node(self.current_config)
         self.graph.add_node(self.goal_config)
+        self.graph.add_edges_from(self.get_config_edges(self.current_config, self.goal_config))
 
     def handle_reset(self):
         """
@@ -187,15 +188,9 @@ class Planner:
             return
         self.last_sampled_config = sample
         new_config_edges = []
+        # Attempt to add sample to graph
         for config in self.graph.nodes:
-            # Attempt to connect to sample
             new_config_edges.extend(self.get_config_edges(sample, config))
-            # Attempt to connect to other nodes
-            for other in self.graph.nodes:
-                # If already connected, continue.
-                if self.graph.has_edge(config, other):
-                    continue
-                new_config_edges.extend(self.get_config_edges(other, config))
         self.graph.add_edges_from(new_config_edges)
 
     def plan(self):

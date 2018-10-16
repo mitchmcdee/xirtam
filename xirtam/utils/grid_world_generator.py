@@ -36,6 +36,22 @@ def parse_args(args):
         help="Path to motion output file",
         default="./test.motion",
     )
+    parser.add_argument(
+        "-mi",
+        "--max_invalid_cells",
+        type=int,
+        help="Maximum number of invalid cells in grid",
+        default=10,
+    )
+    parser.add_argument(
+        "-i", "--invalid_perm", type=float, help="Invalid permeability amount", default=1.0e-10
+    )
+    parser.add_argument(
+        "-v", "--valid_perm", type=float, help="Valid permeability amount", default=1.0
+    )
+    parser.add_argument("-c", "--cell_size", type=float, help="Grid cell size", default=1.0)
+    parser.add_argument("-nr", "--num_rows", type=int, help="Number of rows in grid", default=10)
+    parser.add_argument("-nc", "--num_cols", type=int, help="Number of columns in grid", default=10)
     return parser.parse_args(args)
 
 
@@ -63,14 +79,14 @@ def process_generation_args(test_id, *args, **kwargs):
     return args, kwargs
 
 
-def generate_world(num_rows=10, num_cols=10, max_invalid_cells=25):
+def generate_world(num_rows, num_cols, max_invalid_cells):
     """
     Generates world cells to the given paramaters.
     """
     genesis_cell = (randrange(0, num_cols), randrange(0, num_rows))
     invalid_cells = [genesis_cell]
     # Place invalid cells.
-    while len(invalid_cells) < max_invalid_cells:
+    while len(invalid_cells) < max_invalid_cells and len(invalid_cells) < num_rows * num_cols:
         seed_x, seed_y = choice(invalid_cells)
         delta_x, delta_y = choice(DIRECTIONS)
         invalid_cell = (seed_x + delta_x, seed_y + delta_y)
@@ -104,7 +120,7 @@ def generate_world(num_rows=10, num_cols=10, max_invalid_cells=25):
     return [[1 if (i, j) in invalid_cells else 0 for i in range(num_cols)] for j in range(num_rows)]
 
 
-def save_world(world_cells, output_filepath, cell_size=1.0, valid_perm=1.0, invalid_perm=1.0e-10):
+def save_world(world_cells, output_filepath, cell_size, valid_perm, invalid_perm):
     """
     Writes the given world to its output file.
     """
@@ -187,17 +203,19 @@ def save_motion(motion_plan, output_filepath):
                 output_file.write(f"{vertex_x}, {vertex_y}\n")
 
 
-def grid_generator(args):
+def grid_generator(generator_args):
     """
     Generates the grid world.
     """
-    parsed_args = parse_args(args)
-    robot = Robot(parsed_args.robot_filepath)
-    world_cells = generate_world()
-    save_world(world_cells, parsed_args.world_output_filepath)
-    world = World(parsed_args.world_output_filepath)
+    args = parse_args(generator_args)
+    robot = Robot(args.robot_filepath)
+    world_cells = generate_world(args.num_rows, args.num_cols, args.max_invalid_cells)
+    save_world(
+        world_cells, args.world_output_filepath, args.cell_size, args.valid_perm, args.invalid_perm
+    )
+    world = World(args.world_output_filepath)
     motion_plan = generate_motion(robot, world, world_cells)
-    save_motion(motion_plan, parsed_args.motion_output_filepath)
+    save_motion(motion_plan, args.motion_output_filepath)
 
 
 def main():
