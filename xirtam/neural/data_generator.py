@@ -12,9 +12,7 @@ def seg_data_generator(stride, n_classes, img_dir, img_list, preprocess=True):
     LUT = np.eye(n_classes)
     x_ = []
     y_ = []
-
     for img_id in tqdm(img_list):
-
         # load image
         img_path = img_dir + img_id
         x = skimage.io.imread(img_path)
@@ -37,33 +35,12 @@ def seg_data_generator(stride, n_classes, img_dir, img_list, preprocess=True):
         if len(y.shape) > 2:
             y = y[..., 0]
 
-        # crop if image dims do not match stride
-        w_rest = x.shape[0] % stride
-        h_rest = x.shape[1] % stride
-
-        if w_rest > 0:
-            w_crop_1 = np.round(w_rest / 2).astype(int)
-            w_crop_2 = w_rest - w_crop_1
-
-            x = x[w_crop_1:-w_crop_2, :, :]
-            y = y[w_crop_1:-w_crop_2, :]
-        if h_rest > 0:
-            h_crop_1 = np.round(h_rest / 2).astype(int)
-            h_crop_2 = h_rest - h_crop_1
-
-            x = x[:, h_crop_1:-h_crop_2, :]
-            y = y[:, h_crop_1:-h_crop_2]
-
         # prepare for NN
         x = np.array(x, dtype="float")
-        # x = x[np.newaxis, ...]
-
         if preprocess == True:
             x = preprocess_input(x)
 
         y = LUT[y]
-        # y = y[np.newaxis, ...]  # make it a 4D tensor
-
         x_.append(x)
         y_.append(y)
     return np.stack(x_, axis=0), np.stack(y_, axis=0)
