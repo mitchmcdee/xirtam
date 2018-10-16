@@ -51,13 +51,13 @@ class TrainerManager:
         signal.signal(signal.SIGINT, self.on_close)
         num_trainers = max(1, cpu_count() - 1)
         for trainer_num in range(num_trainers):
-            trainer = Process(target=self.manager, args=(trainer_num,) + args, kwargs=kwargs)
+            trainer = Process(target=self.manage, args=(trainer_num,) + args, kwargs=kwargs)
             trainer.daemon = True
             trainer.start()
 
-    def manager(self, trainer_num, *args, **kwargs):
+    def manage(self, trainer_num, *args, **kwargs):
         """
-        Manager who restarts new trainers when they complete their task.
+        Restart trainers when they complete their task.
         """
         while True:
             Trainer(trainer_num, *args, **kwargs).run()
