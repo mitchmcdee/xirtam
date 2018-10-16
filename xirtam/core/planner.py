@@ -28,7 +28,7 @@ class Planner:
     model during playback simulation.
     """
 
-    # TODO(mitch): tinker with this value? low is good!!
+    # TODO(mitch): tinker with this value? low is good!! might have to change for more complex graphs though
     GRAPH_SIZE_LIMIT = 3
 
     def __init__(self, robot, world, motion_filepath, output_path):
@@ -162,6 +162,19 @@ class Planner:
         # Take next step.
         self.current_config = next_config
 
+    def get_config_edges(self, config_a, config_b):
+        """
+        Returns the edges connecting config a and b.
+        """
+        config_edges = []
+        interpolations = config_a.interpolate(config_b, self.world)
+        if interpolations is not None:
+            config_edges.append((config_a, config_b))
+        interpolations = config_b.interpolate(config_a, self.world)
+        if interpolations is not None:
+            config_edges.append((config_b, config_a))
+        return config_edges
+
     def sample(self):
         """
         Samples new config and attempts to add it to the graph.
@@ -175,14 +188,14 @@ class Planner:
         self.last_sampled_config = sample
         new_config_edges = []
         for config in self.graph.nodes:
-            interpolations = config.interpolate(sample, self.world)
-            if interpolations is None:
-                continue
-            new_config_edges.append((sample, config))
-            interpolations = sample.interpolate(config, self.world)
-            if interpolations is None:
-                continue
-            new_config_edges.append((config, sample))
+            # Attempt to connect to sample
+            new_config_edges.extend(self.get_config_edges(sample, config))
+            # Attempt to connect to other nodes
+            for other in self.graph.nodes:
+                # If already connected, continue.
+                if self.graph.has_edge(config, other):
+                    continue
+                new_config_edges.extend(self.get_config_edges(other, config))
         self.graph.add_edges_from(new_config_edges)
 
     def plan(self):
