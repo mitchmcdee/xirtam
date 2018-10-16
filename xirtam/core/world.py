@@ -157,6 +157,16 @@ class World:
             )
         return is_valid_sample
 
+    def intersects_invalid(self, config):
+        """
+        Returns True if the config intersects with an already discovered invalid region, else False.
+        """
+        for footprint in config.footprints:
+            for placement in self.invalid_placements:
+                if footprint.intersects(placement):
+                    return True
+        return False
+
     def save_placements_bmp(self, folderpath):
         """
         Saves the foot placements as a bitmap file.

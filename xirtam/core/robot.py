@@ -278,7 +278,8 @@ class RobotConfig:
                 continue
             # If no foot was found in the quadrant, invalid centre of mass.
             return False
-        return True
+        # Check that the robot doesn't collide with any invalid regions.
+        return not world.intersects_invalid(self)
 
     def get_point_along_body(self, distance_from_front: float):
         """
