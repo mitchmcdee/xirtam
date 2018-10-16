@@ -37,11 +37,11 @@ def parse_args(args):
         default="./test.motion",
     )
     parser.add_argument(
-        "-mi",
-        "--max_invalid_cells",
+        "-ip",
+        "--invalid_percentage",
         type=int,
-        help="Maximum number of invalid cells in grid",
-        default=30,
+        help="Percentage of cells in world which are invalid",
+        default=0.3,
     )
     parser.add_argument(
         "-g",
@@ -86,7 +86,7 @@ def process_generation_args(test_id, *args, **kwargs):
     return args, kwargs
 
 
-def generate_world(num_rows, num_cols, max_invalid_cells, num_genesis_cells):
+def generate_world(num_rows, num_cols, invalid_percentage, num_genesis_cells):
     """
     Generates world cells to the given paramaters.
     """
@@ -95,6 +95,7 @@ def generate_world(num_rows, num_cols, max_invalid_cells, num_genesis_cells):
     for _ in range(num_genesis_cells):
         invalid_cells.append((randrange(0, num_cols), randrange(0, num_rows)))
     is_bad_cell = lambda c: c[0] in (-1, num_cols) or c[1] in (-1, num_rows) or c in invalid_cells
+    max_invalid_cells = int(invalid_percentage * num_rows * num_cols)
     # Place invalid cells while under limit.
     while len(invalid_cells) < max_invalid_cells:
         seed_x, seed_y = choice(invalid_cells)
@@ -218,7 +219,7 @@ def grid_generator(generator_args):
     args = parse_args(generator_args)
     robot = Robot(args.robot_filepath)
     world_cells = generate_world(
-        args.num_rows, args.num_cols, args.max_invalid_cells, args.num_genesis_cells
+        args.num_rows, args.num_cols, args.invalid_percentage, args.num_genesis_cells
     )
     save_world(
         world_cells, args.world_output_filepath, args.cell_size, args.valid_perm, args.invalid_perm
