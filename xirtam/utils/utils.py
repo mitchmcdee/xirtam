@@ -71,24 +71,13 @@ def get_coerced_reader_row(
         raise FileFormatException(reader.line_num, filepath, "Missing " + description)
     try:
         row = tuple([types[i](element) for i, element in enumerate(row)])
-    except:
+    except ValueError:
         raise FileFormatException(reader.line_num, filepath, "Could not coerce " + description)
     # If there's only one element, bring it out of the list.
     items = row[0] if len(row) == 1 else row
     if len(row) != len(types) or not validity_fn(items):
         raise FileFormatException(reader.line_num, filepath, "Invalid " + description)
     return items
-
-
-def get_nowait_or_default(queue, default=None):
-    """
-    Attempts to get the next value from the given queue. If successful, returns
-    the retrieved value, else returns the default value.
-    """
-    try:
-        return queue.get_nowait()
-    except:
-        return default
 
 
 def clamp(value, smallest, largest):

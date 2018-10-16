@@ -1,6 +1,7 @@
 """
 Module containing high level class for generating grid world files.
 """
+import os
 import sys
 import math
 import argparse
@@ -13,29 +14,53 @@ from random import randrange, choice
 DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
 
-def parse_args():
+def parse_args(args):
     """
     Parses world generator CLI arguments.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-r", "--robot_path", type=str, help="Path to robot file", default="./test.robot"
+        "-r", "--robot_filepath", type=str, help="Path to robot file", default="./test.robot"
     )
     parser.add_argument(
         "-w",
-        "--world_output_path",
+        "--world_output_filepath",
         type=str,
         help="Path to world output file",
         default="./test.world",
     )
     parser.add_argument(
         "-m",
-        "--motion_output_path",
+        "--motion_output_filepath",
         type=str,
         help="Path to motion output file",
         default="./test.motion",
     )
-    return parser.parse_args()
+    return parser.parse_args(args)
+
+
+def process_generation_args(test_id, *args, **kwargs):
+    """
+    Processes simulation args to determine whether test case generation is required.
+    Performs generation if necessary and returns the modified args.
+    """
+    is_generating = kwargs.pop("generate_case")
+    if is_generating:
+        robot_filepath = kwargs.get("robot_filepath")
+        world_filepath = kwargs.get("world_filepath")
+        motion_filepath = kwargs.get("motion_filepath")
+        output_filepath = kwargs.get("output_filepath")
+        temp_directory = os.path.join(output_filepath, "tmp/")
+        # Make temp directory if it doesn't already exist
+        if not os.path.exists(temp_directory):
+            os.makedirs(temp_directory)
+        world_filepath = os.path.join(temp_directory, f"training-{test_id}.world")
+        motion_filepath = os.path.join(temp_directory, f"training-{test_id}.motion")
+        kwargs["world_filepath"] = world_filepath
+        kwargs["motion_filepath"] = motion_filepath
+        generator_args = ["-w", world_filepath, "-m", motion_filepath, "-r", robot_filepath]
+        grid_generator(generator_args)
+    return args, kwargs
 
 
 def generate_world(num_rows=10, num_cols=10, max_invalid_cells=25):
@@ -79,7 +104,7 @@ def generate_world(num_rows=10, num_cols=10, max_invalid_cells=25):
     return [[1 if (i, j) in invalid_cells else 0 for i in range(num_cols)] for j in range(num_rows)]
 
 
-def write_world(world_cells, output_filepath, cell_size=1.0, valid_perm=1.0, invalid_perm=1.0e-10):
+def save_world(world_cells, output_filepath, cell_size=1.0, valid_perm=1.0, invalid_perm=1.0e-10):
     """
     Writes the given world to its output file.
     """
@@ -145,7 +170,7 @@ def generate_motion(robot, world, world_cells):
     return start_config, goal_config
 
 
-def write_motion(motion_plan, output_filepath):
+def save_motion(motion_plan, output_filepath):
     """
     Writes the given motion plan to its output file.
     """
@@ -162,14 +187,21 @@ def write_motion(motion_plan, output_filepath):
                 output_file.write(f"{vertex_x}, {vertex_y}\n")
 
 
-def main():
-    args = parse_args()
-    robot = Robot(args.robot_path)
+def grid_generator(args):
+    """
+    Generates the grid world.
+    """
+    parsed_args = parse_args(args)
+    robot = Robot(parsed_args.robot_filepath)
     world_cells = generate_world()
-    write_world(world_cells, args.world_output_path)
-    world = World(args.world_output_path)
+    save_world(world_cells, parsed_args.world_output_filepath)
+    world = World(parsed_args.world_output_filepath)
     motion_plan = generate_motion(robot, world, world_cells)
-    write_motion(motion_plan, args.motion_output_path)
+    save_motion(motion_plan, parsed_args.motion_output_filepath)
+
+
+def main():
+    grid_generator(sys.argv[1:])
 
 
 if __name__ == "__main__":

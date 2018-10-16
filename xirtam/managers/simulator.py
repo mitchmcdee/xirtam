@@ -2,7 +2,6 @@
 Module containing high level information for the simulation environment,
 such as the GUI window.
 """
-import sys
 import signal
 import pyglet
 import logging
@@ -10,7 +9,7 @@ from xirtam.core.model import Model
 from xirtam.core.view import View
 from xirtam.core.controller import Controller
 from xirtam.core.settings import WINDOW_DIMENSIONS, LOG_LEVEL, FPS_LIMIT, IS_FULLSCREEN
-from xirtam.utils.parser import SimulationParser
+from xirtam.utils.grid_world_generator import process_generation_args
 
 
 # Setup logger
@@ -23,12 +22,13 @@ class SimulatorManager(pyglet.window.Window):
     A controlling manager simulation window containing the simulation environment.
     """
 
-    def __init__(self, world_filepath, robot_filepath, motion_filepath, output_path):
+    def __init__(self, *args, **kwargs):
+        args, kwargs = process_generation_args("simulator", *args, **kwargs)
         signal.signal(signal.SIGINT, self.on_close)
         width, height = WINDOW_DIMENSIONS
         super().__init__(width=width, height=height, resizable=True, fullscreen=IS_FULLSCREEN)
         # MVC
-        self.model = Model(world_filepath, robot_filepath, motion_filepath, output_path)
+        self.model = Model(*args, **kwargs)
         self.view = View(self, self.model)
         self.controller = Controller(self.model, self.view)
         # Pyglet

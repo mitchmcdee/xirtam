@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw
 from enum import Enum
 from itertools import cycle
 from xirtam.utils.geometry.rectangle import Rectangle
-from xirtam.utils.geometry.point2d import Point2D
 from xirtam.utils.utils import (
     get_coerced_reader_row_helper,
     get_circle_call,
