@@ -1,7 +1,9 @@
 *.prof
-*.py[cod]
 __pycache__/
 .pytest_cache/
-data/models/
-data/out/
+models/
+out/
 .DS_Store
+*.world
+*.robot
+*.motion
