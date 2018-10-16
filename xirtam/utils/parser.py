@@ -19,19 +19,11 @@ class SimulationParser(argparse.ArgumentParser):
             "-t", "--trainer", dest="trainer", action="store_true", help="Run trainer"
         )
         self.add_argument(
-            "-w", "--world_path", type=str, help="Path to world file", default="./test.world"
+            "-r", "--robot_filepath", type=str, help="Path to robot file", default="./test.robot"
         )
         self.add_argument(
-            "-m", "--motion_path", type=str, help="Path to motion file", default="./test.motion"
+            "-o", "--output_filepath", type=str, help="Path to output folder", default="./out/"
         )
-        self.add_argument(
-            "-r", "--robot_path", type=str, help="Path to robot file", default="./test.robot"
-        )
-        self.add_argument(
-            "-o",
-            "--output_path",
-            type=str,
-            help="Path to generated output folder",
-            default="./out/",
-        )
-        self.add_argument("-p", "--policy_path", type=str, help="Path to policy model file")
+        self.add_argument("-w", "--world_filepath", type=str, help="Path to world file")
+        self.add_argument("-m", "--motion_filepath", type=str, help="Path to motion file")
+        self.add_argument("-p", "--policy_filepath", type=str, help="Path to policy model file")
