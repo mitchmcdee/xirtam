@@ -31,7 +31,7 @@ class Planner:
     # TODO(mitch): tinker with this value? low is good!! might have to change for more complex graphs though
     GRAPH_SIZE_LIMIT = 3
 
-    def __init__(self, robot, world, motion_filepath, output_path):
+    def __init__(self, robot, world, motion_filepath, output_filepath):
         self.robot = robot
         self.world = world
         self.start_config, self.goal_config = self.get_motion(robot, motion_filepath)
@@ -39,12 +39,12 @@ class Planner:
         world_hash = self.world.__hash__()
         motion_hash = hash((self.start_config, self.goal_config))
         output_directory = f"robot-{robot_hash}/world-{world_hash}/motion-{motion_hash}"
-        self.output_path = os.path.join(output_path, output_directory)
+        self.output_filepath = os.path.join(output_filepath, output_directory)
         # Make ouput directory if it doesn't already exist
-        if not os.path.exists(self.output_path):
-            os.makedirs(self.output_path)
+        if not os.path.exists(self.output_filepath):
+            os.makedirs(self.output_filepath)
         # Save valid regions bmp for the provided robot.
-        self.world.save_regions_bmp(self.robot, self.output_path)
+        self.world.save_regions_bmp(self.robot, self.output_filepath)
         self.graph = nx.DiGraph()
         self.previous_configs = []
         self.initialise()
@@ -141,7 +141,7 @@ class Planner:
         if self.current_config == self.goal_config:
             self.is_complete = True
             LOGGER.info("Got to goal!")
-            self.world.save_placements_bmp(self.output_path)
+            self.world.save_placements_bmp(self.output_filepath)
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
         if self.world.is_valid_config(self.current_config):
@@ -152,7 +152,7 @@ class Planner:
         else:
             LOGGER.info("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
-            self.world.save_placements_bmp(self.output_path)
+            self.world.save_placements_bmp(self.output_filepath)
         next_config = next(self.execution_path, None)
         # If we've exhausted the execution path, start planning again.
         if next_config is None:

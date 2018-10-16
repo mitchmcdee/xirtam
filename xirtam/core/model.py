@@ -16,10 +16,10 @@ class Model:
     which can be manipulated and interacted with.
     """
 
-    def __init__(self, world_filepath, robot_filepath, motion_filepath, output_path):
+    def __init__(self, world_filepath, robot_filepath, motion_filepath, output_filepath):
         self.world = World(world_filepath)
         self.robot = Robot(robot_filepath)
-        self.planner = Planner(self.robot, self.world, motion_filepath, output_path)
+        self.planner = Planner(self.robot, self.world, motion_filepath, output_filepath)
 
     def handle_start(self):
         """
