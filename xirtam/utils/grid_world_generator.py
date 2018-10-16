@@ -41,7 +41,7 @@ def parse_args(args):
         "--max_invalid_cells",
         type=int,
         help="Maximum number of invalid cells in grid",
-        default=10,
+        default=25,
     )
     parser.add_argument(
         "-i", "--invalid_perm", type=float, help="Invalid permeability amount", default=1.0e-10

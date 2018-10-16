@@ -23,9 +23,6 @@ from xirtam.core.settings import (
     MIN_PERMEABILITY_COLOUR,
     MAX_PERMEABILITY_COLOUR,
     OUTPUT_BMP_DIMENSIONS,
-    OUTPUT_DEFAULT_LABEL,
-    OUTPUT_VALID_LABEL,
-    OUTPUT_INVALID_LABEL,
     OUTPUT_DEFAULT_COLOUR,
     OUTPUT_VALID_COLOUR,
     OUTPUT_INVALID_COLOUR,
@@ -224,7 +221,7 @@ class World:
         # Set default colour
         for i in range(output_width):
             for j in range(output_height):
-                pixels[i, j] = OUTPUT_DEFAULT_LABEL
+                pixels[i, j] = OUTPUT_DEFAULT_COLOUR
         # Add regions
         for region in self.regions:
             translated_bounds = get_translated_bounds(
@@ -232,9 +229,9 @@ class World:
             )
             left, top, right, bottom = list(map(int, translated_bounds))
             if robot.can_hold(region.permeability):
-                colour = OUTPUT_VALID_LABEL
+                colour = OUTPUT_VALID_COLOUR
             else:
-                colour = OUTPUT_INVALID_LABEL
+                colour = OUTPUT_INVALID_COLOUR
             draw.rectangle((bottom, left, top, right), fill=colour)
         regions_filepath = os.path.join(folderpath, "regions.bmp")
         image.save(regions_filepath)
