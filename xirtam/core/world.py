@@ -45,6 +45,18 @@ class WorldRegion(Rectangle):
         super().__init__(x, y, width, height)
         self.permeability = permeability
 
+    def __eq__(self, other) -> bool:
+        """
+        Returns True if the regions are the same rectangle with the same permeability, else False.
+        """
+        return super().__eq__(other) and self.permeability == other.permeability
+
+    def __hash__(self):
+        """
+        Returns the unique hash for the region.
+        """
+        return hash((super().__hash__(), self.permeability))
+
 
 class WorldVisibilityState(Enum):
     """
