@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dropout, Conv2DTranspose
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from PIL import Image
 from skimage.io import imread
 from sklearn.model_selection import train_test_split
@@ -10,15 +10,16 @@ from tqdm import tqdm
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from keras.applications import VGG16, ResNet50, InceptionV3, InceptionResNetV2
 
+# TODO(mitch): abstract stuff into separate files to reduce duplication between this and debug. cleanup.
 
 # Constants
-training = True
+training = False
 model_dir = "./out/models/"
 base_data_dir = "./out/robot--4209387126734636757/"
 image_size = (128, 128)
 input_shape = (*image_size, 1)
 epochs = 50
-batch_size = 256
+batch_size = 64
 test_split = 0.1
 
 # Rangle data
@@ -40,32 +41,46 @@ for world_name in tqdm(list(os.listdir(base_data_dir))):
     world_y *= len(world_x)
     x.extend(world_x)
     y.extend(world_y)
-    # TODO(mitch): remove this
-    if len(y) > 0 and len(x) > 300:
-        break
 x = np.array(x).astype("float32") / 255
 y = np.array(y).astype("float32") / 255
 x = np.reshape(x, (len(x), *input_shape))
 y = np.reshape(y, (len(y), *input_shape))
-x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split)
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split, shuffle=False)
 
-# Build fully convolutional network
-fcn = Sequential()
-fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu", input_shape=input_shape))
-fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
-fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(UpSampling2D((2, 2)))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(UpSampling2D((2, 2)))
-fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
+# # Build fully convolutional network
+# fcn = Sequential()
+# fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu", input_shape=input_shape))
+# fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
+# fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(UpSampling2D((2, 2)))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(UpSampling2D((2, 2)))
+# fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
+
+# # Other networks to test
+# # base_model = ResNet50(include_top=False, weights=None, input_shape=input_shape)
+# # base_model = VGG16(include_top=False, weights=None, input_shape=input_shape)
+# base_model = InceptionV3(include_top=False, weights=None, input_shape=input_shape)
+# # base_model = InceptionResNetV2(include_top=False, weights=None, input_shape=input_shape)
+# x = base_model.output
+# x = UpSampling2D((4, 4))(x)
+# x = Conv2D(64, (3, 3), padding="same", activation="relu")(x)
+# x = Conv2D(64, (3, 3), padding="same", activation="relu")(x)
+# x = UpSampling2D((4, 4))(x)
+# x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
+# x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
+# x = UpSampling2D((2, 2))(x)
+# x = Conv2D(1, (1, 1), activation="sigmoid")(x)
+# fcn = Model(input=base_model.input, output=x)
 
 model_output_path = os.path.join(model_dir + "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
+# model_output_path = os.path.join(model_dir + "weights.50-0.67.hdf5")
 checkpoint = ModelCheckpoint(model_output_path, verbose=1, mode="min", save_weights_only=True)
 plateau = ReduceLROnPlateau(patience=5)
 callbacks_list = [checkpoint, plateau]
@@ -90,9 +105,13 @@ if training:
 else:
     fcn.load_weights(model_output_path)
 
+
 # Visually evaluate results
-predictions = fcn.predict(x_test)
 n = 10
+indices = np.random.permutation(len(x_test))[:n + 1]
+x_test = x_test[indices]
+y_test = y_test[indices]
+predictions = fcn.predict(x_test)
 plt.figure(figsize=(20, 6))
 plt.gray()
 for i in range(1, n + 1):
