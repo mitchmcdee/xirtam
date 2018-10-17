@@ -13,7 +13,6 @@ from keras.applications import VGG16, ResNet50, InceptionV3, InceptionResNetV2
 # TODO(mitch): abstract stuff into separate files to reduce duplication between this and debug. cleanup.
 
 # Constants
-training = False
 model_dir = "./out/models/"
 base_data_dir = "./out/robot--4209387126734636757/"
 image_size = (128, 128)
@@ -47,21 +46,21 @@ x = np.reshape(x, (len(x), *input_shape))
 y = np.reshape(y, (len(y), *input_shape))
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split, shuffle=False)
 
-# # Build fully convolutional network
-# fcn = Sequential()
-# fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu", input_shape=input_shape))
-# fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
-# fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-# fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-# fcn.add(UpSampling2D((2, 2)))
-# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-# fcn.add(UpSampling2D((2, 2)))
-# fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
+# Build fully convolutional network
+fcn = Sequential()
+fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu", input_shape=input_shape))
+fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
+fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+fcn.add(UpSampling2D((2, 2)))
+fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+fcn.add(UpSampling2D((2, 2)))
+fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
 
 # # Other networks to test
 # # base_model = ResNet50(include_top=False, weights=None, input_shape=input_shape)
@@ -79,57 +78,23 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split, 
 # x = Conv2D(1, (1, 1), activation="sigmoid")(x)
 # fcn = Model(input=base_model.input, output=x)
 
+# Make model directory if it doesn't already exist
+if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
 model_output_path = os.path.join(model_dir + "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
-# model_output_path = os.path.join(model_dir + "weights.50-0.67.hdf5")
 checkpoint = ModelCheckpoint(model_output_path, verbose=1, mode="min", save_weights_only=True)
 plateau = ReduceLROnPlateau(patience=5)
 callbacks_list = [checkpoint, plateau]
 
-if training:
-    # Compile and fit
-    fcn.compile(optimizer="adadelta", loss="binary_crossentropy")
-    fcn.summary()
-    fcn.fit(
-        x_train,
-        y_train,
-        verbose=1,
-        epochs=epochs,
-        batch_size=batch_size,
-        shuffle=True,
-        validation_data=(x_test, y_test),
-    )
-    # Make model directory if it doesn't already exist
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    fcn.save_weights(model_output_path)
-else:
-    fcn.load_weights(model_output_path)
-
-
-# Visually evaluate results
-n = 10
-indices = np.random.permutation(len(x_test))[:n + 1]
-x_test = x_test[indices]
-y_test = y_test[indices]
-predictions = fcn.predict(x_test)
-plt.figure(figsize=(20, 6))
-plt.gray()
-for i in range(1, n + 1):
-    # display original
-    ax = plt.subplot(3, n, i + 0 * n)
-    plt.imshow(x_test[i].reshape(*image_size))
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-
-    # display truth
-    ax = plt.subplot(3, n, i + 1 * n)
-    plt.imshow(y_test[i].reshape(*image_size))
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-
-    # display prediction
-    ax = plt.subplot(3, n, i + 2 * n)
-    plt.imshow(predictions[i].reshape(*image_size))
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-plt.show()
+# Compile and fit
+fcn.compile(optimizer="adadelta", loss="binary_crossentropy")
+fcn.summary()
+fcn.fit(
+    x_train,
+    y_train,
+    verbose=1,
+    epochs=epochs,
+    batch_size=batch_size,
+    shuffle=True,
+    validation_data=(x_test, y_test),
+)
