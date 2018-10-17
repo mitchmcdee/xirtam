@@ -13,12 +13,13 @@ from keras.applications import VGG16, ResNet50, InceptionV3, InceptionResNetV2
 # TODO(mitch): abstract stuff into separate files to reduce duplication between this and debug. cleanup.
 
 # Constants
+log_dir = "./out/logs/"
 model_dir = "./out/models/"
 base_data_dir = "./out/robot--4209387126734636757/"
 image_size = (128, 128)
 input_shape = (*image_size, 1)
-epochs = 50
-batch_size = 64
+epochs = 3000
+batch_size = 128
 test_split = 0.1
 
 # Rangle data
@@ -46,48 +47,49 @@ x = np.reshape(x, (len(x), *input_shape))
 y = np.reshape(y, (len(y), *input_shape))
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split, shuffle=False)
 
-# Build fully convolutional network
-fcn = Sequential()
-fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu", input_shape=input_shape))
-fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
-fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(UpSampling2D((2, 2)))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-fcn.add(UpSampling2D((2, 2)))
-fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
+# # Build fully convolutional network
+# fcn = Sequential()
+# fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu", input_shape=input_shape))
+# fcn.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
+# fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(MaxPooling2D((2, 2), strides=(2, 2)))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(UpSampling2D((2, 2)))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+# fcn.add(UpSampling2D((2, 2)))
+# fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
 
-# # Other networks to test
-# # base_model = ResNet50(include_top=False, weights=None, input_shape=input_shape)
-# # base_model = VGG16(include_top=False, weights=None, input_shape=input_shape)
+# Other networks to test
+base_model = ResNet50(include_top=False, weights=None, input_shape=input_shape)
+# base_model = VGG16(include_top=False, weights=None, input_shape=input_shape)
 # base_model = InceptionV3(include_top=False, weights=None, input_shape=input_shape)
-# # base_model = InceptionResNetV2(include_top=False, weights=None, input_shape=input_shape)
-# x = base_model.output
-# x = UpSampling2D((4, 4))(x)
-# x = Conv2D(64, (3, 3), padding="same", activation="relu")(x)
-# x = Conv2D(64, (3, 3), padding="same", activation="relu")(x)
-# x = UpSampling2D((4, 4))(x)
-# x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
-# x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
-# x = UpSampling2D((2, 2))(x)
-# x = Conv2D(1, (1, 1), activation="sigmoid")(x)
-# fcn = Model(input=base_model.input, output=x)
+# base_model = InceptionResNetV2(include_top=False, weights=None, input_shape=input_shape)
+x = base_model.output
+x = UpSampling2D((4, 4))(x)
+x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
+x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
+x = UpSampling2D((4, 4))(x)
+x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
+x = Conv2D(128, (3, 3), padding="same", activation="relu")(x)
+x = UpSampling2D((2, 2))(x)
+x = Conv2D(1, (1, 1), activation="sigmoid")(x)
+fcn = Model(input=base_model.input, output=x)
 
 # Make model directory if it doesn't already exist
 if not os.path.exists(model_dir):
     os.makedirs(model_dir)
 model_output_path = os.path.join(model_dir + "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
-checkpoint = ModelCheckpoint(model_output_path, verbose=1, mode="min", save_weights_only=True)
+tensorboard = TensorBoard(log_dir=log_dir, write_graph=False)
+checkpoint = ModelCheckpoint(model_output_path, verbose=1, mode="min", save_best_only=True, save_weights_only=True)
 plateau = ReduceLROnPlateau(patience=5)
-callbacks_list = [checkpoint, plateau]
+callbacks_list = [checkpoint, plateau, tensorboard]
 
 # Compile and fit
-fcn.compile(optimizer="adadelta", loss="binary_crossentropy")
+fcn.compile(optimizer="adam", loss="binary_crossentropy")
 fcn.summary()
 fcn.fit(
     x_train,
@@ -97,4 +99,5 @@ fcn.fit(
     batch_size=batch_size,
     shuffle=True,
     validation_data=(x_test, y_test),
+    callbacks=callbacks_list,
 )
