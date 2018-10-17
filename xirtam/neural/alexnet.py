@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dropout
+from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dropout, Conv2DTranspose
 from keras.models import Sequential
 from PIL import Image
 from skimage.io import imread
@@ -12,13 +12,13 @@ from keras.applications import VGG16, ResNet50, InceptionV3, InceptionResNetV2
 
 
 # Constants
-training = False
+training = True
 model_dir = "./out/models/"
 base_data_dir = "./out/robot--4209387126734636757/"
 image_size = (128, 128)
 input_shape = (*image_size, 1)
-epochs = 1
-batch_size = 64
+epochs = 50
+batch_size = 256
 test_split = 0.1
 
 # Rangle data
@@ -65,8 +65,8 @@ fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
 fcn.add(UpSampling2D((2, 2)))
 fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
 
-model_output_path = os.path.join(model_dir + "custom_final_weights.hdf5")
-checkpoint = ModelCheckpoint(model_output_path, verbose=1, save_best_only=True, mode="min")
+model_output_path = os.path.join(model_dir + "weights.{epoch:02d}-{val_loss:.2f}.hdf5")
+checkpoint = ModelCheckpoint(model_output_path, verbose=1, mode="min", save_weights_only=True)
 plateau = ReduceLROnPlateau(patience=5)
 callbacks_list = [checkpoint, plateau]
 
