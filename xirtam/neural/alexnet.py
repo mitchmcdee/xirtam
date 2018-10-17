@@ -11,32 +11,38 @@ from tqdm import tqdm
 
 
 # Constants
-training = False
-model_dir = "./data/models/alexnet/"
-base_data_dir = "./data/out/robot--4209387126734636757/world-5546682508642403194/"
+training = True
+model_dir = "./out/models/"
+base_data_dir = "./out/robot--4209387126734636757/"
 image_size = (128, 128)
 input_shape = (*image_size, 1)
-epochs = 5
-batch_size = 256
+epochs = 1
+batch_size = 64
 test_split = 0.1
 
 # Rangle data
 x = []
 y = []
-for filename in tqdm(list(os.listdir(base_data_dir))):
-    _, extension = os.path.splitext(filename)
-    if extension != ".bmp":
-        continue
-    image = imread(base_data_dir + filename, as_gray=True)
-    if filename == "regions.bmp":
-        y.append(image)
-    else:
-        x.append(image)
-y *= len(x)
-x = np.array(x)
-y = np.array(y)
-x = x.astype("float32") / 255
-y = y.astype("float32") / 255
+for world_name in tqdm(list(os.listdir(base_data_dir))):
+    world_dir = os.path.join(base_data_dir, world_name)
+    world_x = []
+    world_y = []
+    for file_name in os.listdir(world_dir):
+        _, extension = os.path.splitext(file_name)
+        if extension != ".bmp":
+            continue
+        image = imread(os.path.join(world_dir, file_name), as_gray=True)
+        if file_name == "regions.bmp":
+            world_y.append(image)
+        else:
+            world_x.append(image)
+    world_y *= len(world_x)
+    x.extend(world_x)
+    y.extend(world_y)
+    if len(y) > 0 and len(x) > 300:
+        break
+x = np.array(x).astype("float32") / 255
+y = np.array(y).astype("float32") / 255
 x = np.reshape(x, (len(x), *input_shape))
 y = np.reshape(y, (len(y), *input_shape))
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_split)
@@ -70,9 +76,12 @@ if training:
         shuffle=True,
         validation_data=(x_test, y_test),
     )
-    fcn.save(model_dir + "final_weights.hdf5")
+    # Make model directory if it doesn't already exist
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    fcn.save(os.path.join(model_dir + "custom_final_weights.hdf5"))
 else:
-    fcn.load_weights(model_dir + "final_weights.hdf5")
+    fcn.load_weights(os.path.join(model_dir + "custom_final_weights.hdf5"))
 
 # Visually evaluate results
 predictions = fcn.predict(x_test)

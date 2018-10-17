@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument("-mi", "--model_input", help="Init with model")
 
     parser.add_argument(
-        "-mo", "--model_output", help="Where to save the trained model?", default="./data/models/"
+        "-mo", "--model_output", help="Where to save the trained model?", default="./out/models/"
     )
 
     parser.add_argument("-id", "--exp_id", help="Experiment id", required=True)
