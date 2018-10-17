@@ -2,16 +2,17 @@ import os
 import numpy as np
 from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dropout
 from keras.models import Sequential
-from keras.datasets import mnist
 from PIL import Image
 from skimage.io import imread
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from keras.applications import VGG16, ResNet50, InceptionV3, InceptionResNetV2
 
 
 # Constants
-training = True
+training = False
 model_dir = "./out/models/"
 base_data_dir = "./out/robot--4209387126734636757/"
 image_size = (128, 128)
@@ -39,6 +40,7 @@ for world_name in tqdm(list(os.listdir(base_data_dir))):
     world_y *= len(world_x)
     x.extend(world_x)
     y.extend(world_y)
+    # TODO(mitch): remove this
     if len(y) > 0 and len(x) > 300:
         break
 x = np.array(x).astype("float32") / 255
@@ -63,6 +65,11 @@ fcn.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
 fcn.add(UpSampling2D((2, 2)))
 fcn.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
 
+model_output_path = os.path.join(model_dir + "custom_final_weights.hdf5")
+checkpoint = ModelCheckpoint(model_output_path, verbose=1, save_best_only=True, mode="min")
+plateau = ReduceLROnPlateau(patience=5)
+callbacks_list = [checkpoint, plateau]
+
 if training:
     # Compile and fit
     fcn.compile(optimizer="adadelta", loss="binary_crossentropy")
@@ -79,33 +86,31 @@ if training:
     # Make model directory if it doesn't already exist
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
-    fcn.save(os.path.join(model_dir + "custom_final_weights.hdf5"))
+    fcn.save_weights(model_output_path)
 else:
-    fcn.load_weights(os.path.join(model_dir + "custom_final_weights.hdf5"))
+    fcn.load_weights(model_output_path)
 
 # Visually evaluate results
 predictions = fcn.predict(x_test)
 n = 10
 plt.figure(figsize=(20, 6))
+plt.gray()
 for i in range(1, n + 1):
     # display original
     ax = plt.subplot(3, n, i + 0 * n)
     plt.imshow(x_test[i].reshape(*image_size))
-    plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 
     # display truth
     ax = plt.subplot(3, n, i + 1 * n)
     plt.imshow(y_test[i].reshape(*image_size))
-    plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 
     # display prediction
     ax = plt.subplot(3, n, i + 2 * n)
     plt.imshow(predictions[i].reshape(*image_size))
-    plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 plt.show()
