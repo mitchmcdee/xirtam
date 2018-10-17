@@ -26,6 +26,7 @@ class OutputLimitException(Exception):
     """
     Raised when a trainer has reached its image output limit.
     """
+
     pass
 
 
@@ -33,6 +34,7 @@ class TimeLimitException(Exception):
     """
     Raised when a trainer has elapsed its total allocated run time.
     """
+
     pass
 
 
@@ -40,6 +42,7 @@ class TrainingQualityException(Exception):
     """
     Raised when a trainer has determined the current map is of insufficient training quality.
     """
+
     pass
 
 
@@ -128,10 +131,10 @@ class Planner:
         """
         self.run_time += delta_time
         if is_training and self.run_time >= self.TIME_LIMIT:
-            LOGGER.info('Reached time limit, quitting!')
+            LOGGER.info("Reached time limit, quitting!")
             raise TimeLimitException()
         if is_training and self.output_count >= self.OUTPUT_LIMIT:
-            LOGGER.info('Reached output limit, quitting!')
+            LOGGER.info("Reached output limit, quitting!")
             raise OutputLimitException()
         if self.is_complete:
             if not is_training:
@@ -231,7 +234,7 @@ class Planner:
             return
         # If training and the path is just from start to goal, short circuit training.
         if is_training and self.current_config == self.start_config and len(node_path) == 2:
-            LOGGER.info('Pointless training sample, quitting!')
+            LOGGER.info("Pointless training sample, quitting!")
             raise TrainingQualityException()
         LOGGER.info("Found a path to the goal! Executing now.")
         self.execution_path = execution_path

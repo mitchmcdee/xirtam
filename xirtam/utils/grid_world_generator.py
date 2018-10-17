@@ -44,11 +44,7 @@ def parse_args(args):
         default=0.3,
     )
     parser.add_argument(
-        "-g",
-        "--num_genesis_cells",
-        type=int,
-        help="Number of genesis cells in grid",
-        default=3,
+        "-g", "--num_genesis_cells", type=int, help="Number of genesis cells in grid", default=3
     )
     parser.add_argument(
         "-i", "--invalid_perm", type=float, help="Invalid permeability amount", default=1.0e-10
