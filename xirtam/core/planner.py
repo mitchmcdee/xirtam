@@ -24,11 +24,23 @@ LEGS = range(Robot.NUM_LEGS)
 
 class OutputLimitException(Exception):
     """
-    Raised when a trainer has completed all its training runs.
+    Raised when a trainer has reached its image output limit.
     """
+    pass
 
-    def __init__(self) -> None:
-        super().__init__()
+
+class TimeLimitException(Exception):
+    """
+    Raised when a trainer has elapsed its total allocated run time.
+    """
+    pass
+
+
+class TrainingQualityException(Exception):
+    """
+    Raised when a trainer has determined the current map is of insufficient training quality.
+    """
+    pass
 
 
 class Planner:
@@ -39,9 +51,11 @@ class Planner:
 
     # TODO(mitch): tinker with this value?
     # Note: low is good!! might have to change for more complex graphs though
-    GRAPH_SIZE_LIMIT = 5
+    GRAPH_SIZE_LIMIT = 10
     # TODO(mitch): tinker with this value?
-    OUTPUT_LIMIT = 100
+    OUTPUT_LIMIT = 50
+    # TODO(mitch): tinker with this value?
+    TIME_LIMIT = 5 * 60
 
     def __init__(self, robot, world, motion_filepath, output_filepath):
         with open(motion_filepath) as motion_file:
@@ -61,13 +75,9 @@ class Planner:
         world_hash = self.world.__hash__()
         output_directory = f"robot-{robot_hash}/world-{world_hash}"
         self.output_filepath = os.path.join(output_filepath, output_directory)
-        # Make ouput directory if it doesn't already exist
-        if not os.path.exists(self.output_filepath):
-            os.makedirs(self.output_filepath)
-        # Save valid regions bmp for the provided robot.
-        self.world.save_regions_bmp(self.robot, self.output_filepath)
         self.graph = nx.DiGraph()
         self.output_count = 0
+        self.run_time = 0
         self.initialise()
 
     def initialise(self):
@@ -116,6 +126,13 @@ class Planner:
         """
         Perform an update given the elapsed time.
         """
+        self.run_time += delta_time
+        if is_training and self.run_time >= self.TIME_LIMIT:
+            LOGGER.info('Reached time limit, quitting!')
+            raise TimeLimitException()
+        if is_training and self.output_count >= self.OUTPUT_LIMIT:
+            LOGGER.info('Reached output limit, quitting!')
+            raise OutputLimitException()
         if self.is_complete:
             if not is_training:
                 return
@@ -123,8 +140,6 @@ class Planner:
             self.world.handle_reset()
             self.handle_reset()
             self.handle_start()
-        if is_training and self.output_count >= self.OUTPUT_LIMIT:
-            raise OutputLimitException()
         if self.is_paused:
             return
         if not self.is_started:
@@ -132,7 +147,7 @@ class Planner:
         if self.is_executing:
             self.execute(delta_time, is_training)
         else:
-            self.plan()
+            self.plan(is_training)
 
     def execute(self, delta_time, is_training):
         """
@@ -147,7 +162,7 @@ class Planner:
         if self.current_config == self.goal_config:
             LOGGER.info("Got to goal!")
             self.is_complete = True
-            self.world.save_placements_bmp(self.output_filepath)
+            self.world.save_placements_bmp(self.robot, self.output_filepath)
             self.output_count += 1
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
@@ -159,7 +174,7 @@ class Planner:
         else:
             LOGGER.info("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
-            self.world.save_placements_bmp(self.output_filepath)
+            self.world.save_placements_bmp(self.robot, self.output_filepath)
             self.output_count += 1
         next_config = next(self.execution_path, None)
         # If we've exhausted the execution path, start planning again.
@@ -200,7 +215,7 @@ class Planner:
             new_config_edges.extend(self.get_config_edges(sample, config))
         self.graph.add_edges_from(new_config_edges)
 
-    def plan(self):
+    def plan(self, is_training):
         """
         Perform a single iteration of planning.
         """
@@ -210,9 +225,14 @@ class Planner:
         # Check if there's a path through configurations starting from current to goal.
         if not nx.has_path(self.graph, self.current_config, self.goal_config):
             return
-        execution_path = self.get_path_to_goal()
+        node_path = nx.shortest_path(self.graph, self.current_config, self.goal_config)
+        execution_path = self.get_interpolated_path(node_path)
         if execution_path is None:
             return
+        # If training and the path is just from start to goal, short circuit training.
+        if is_training and self.current_config == self.start_config and len(node_path) == 2:
+            LOGGER.info('Pointless training sample, quitting!')
+            raise TrainingQualityException()
         LOGGER.info("Found a path to the goal! Executing now.")
         self.execution_path = execution_path
         self.is_executing = True
@@ -223,19 +243,18 @@ class Planner:
         """
         return reversed([c for c in self.previous_configs])
 
-    def get_path_to_goal(self):
+    def get_interpolated_path(self, node_path):
         """
-        Returns the interpolated path to the goal config.
+        Returns the interpolated node path.
         """
-        node_path = nx.shortest_path(self.graph, self.current_config, self.goal_config)
-        path_to_goal = []
+        interpolated_path = []
         for i in range(1, len(node_path)):
             previous, current = node_path[i - 1], node_path[i]
             interpolation = previous.interpolate(current, self.world)
             if interpolation is None:
                 return None
-            path_to_goal.extend(interpolation)
-        return iter(path_to_goal)
+            interpolated_path.extend(interpolation)
+        return iter(interpolated_path)
 
     def draw(self):
         """
@@ -248,7 +267,7 @@ class Planner:
         if self.last_sampled_config is not None:
             self.last_sampled_config.colour = PLANNING_COLOUR
             self.last_sampled_config.draw(batch)
-        if all(self.current_config is not c for c in (None, self.start_config, self.goal_config)):
+        if all(self.current_config != c for c in (None, self.start_config, self.goal_config)):
             self.current_config.colour = EXECUTING_COLOUR
             self.current_config.draw(batch)
         pyglet.gl.glLineWidth(ROBOT_LINE_WIDTH)

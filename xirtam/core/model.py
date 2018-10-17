@@ -46,7 +46,7 @@ class Model:
         """
         self.world.handle_toggle_world()
 
-    def update(self, delta_time=0, is_training=False):
+    def update(self, delta_time, is_training=False):
         """
         Perform an update given the elapsed time.
         """

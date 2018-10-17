@@ -4,10 +4,10 @@ Module containing high level class for controlling policy training.
 import sys
 import signal
 import logging
-from time import sleep
+from time import sleep, perf_counter
 from multiprocessing import Process, cpu_count
 from xirtam.core.model import Model
-from xirtam.core.planner import OutputLimitException
+from xirtam.core.planner import OutputLimitException, TimeLimitException, TrainingQualityException
 from xirtam.core.settings import LOG_LEVEL
 from xirtam.utils.grid_world_generator import process_generation_args
 
@@ -26,6 +26,7 @@ class Trainer:
         args, kwargs = process_generation_args(trainer_num, *args, **kwargs)
         signal.signal(signal.SIGINT, self.on_close)
         self.model = Model(*args, **kwargs)
+        self.last_tick = perf_counter()
         LOGGER.info(f"Running trainer #{trainer_num}!")
 
     def on_close(self, *args, **kwargs):
@@ -40,7 +41,9 @@ class Trainer:
         """
         self.model.handle_start()
         while True:
-            self.model.update(is_training=True)
+            current_tick = perf_counter()
+            self.model.update(delta_time=current_tick - self.last_tick, is_training=True)
+            self.last_tick = current_tick
 
 
 class TrainerManager:
@@ -63,7 +66,7 @@ class TrainerManager:
         while True:
             try:
                 Trainer(trainer_num, *args, **kwargs).run()
-            except OutputLimitException:
+            except (OutputLimitException, TimeLimitException, TrainingQualityException):
                 continue
 
     def on_close(self, *args, **kwargs):

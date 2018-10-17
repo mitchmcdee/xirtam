@@ -175,7 +175,7 @@ class World:
                     return True
         return False
 
-    def save_placements_bmp(self, folderpath):
+    def save_placements_bmp(self, robot, output_directory):
         """
         Saves the foot placements as a bitmap file.
         """
@@ -204,15 +204,27 @@ class World:
             draw.ellipse((bottom, left, top, right), fill=OUTPUT_INVALID_COLOUR)
         # Save unique image if it doesn't already exist
         image_hash = hashlib.sha512(image.tobytes()).hexdigest()
-        placements_filepath = os.path.join(folderpath, f"{image_hash}.bmp")
-        if not os.path.exists(placements_filepath):
-            image.save(placements_filepath)
-            LOGGER.info("Saved placements!")
+        placements_filepath = os.path.join(output_directory, f"{image_hash}.bmp")
+        if os.path.exists(placements_filepath):
+            return
+        # Make ouput directory if it doesn't already exist
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+        image.save(placements_filepath)
+        LOGGER.info("Saved placements!")
+        # Save regions for the given placement if it doesn't exist.
+        self.save_regions_bmp(robot, output_directory)
 
-    def save_regions_bmp(self, robot, folderpath):
+    def save_regions_bmp(self, robot, output_directory):
         """
         Saves the regions as a bitmap file.
         """
+        # Make ouput directory if it doesn't already exist
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+        regions_filepath = os.path.join(output_directory, "regions.bmp")
+        if os.path.exists(regions_filepath):
+            return
         image = Image.new("L", OUTPUT_BMP_DIMENSIONS)
         draw = ImageDraw.Draw(image)
         pixels = image.load()
@@ -233,7 +245,6 @@ class World:
             else:
                 colour = OUTPUT_INVALID_COLOUR
             draw.rectangle((bottom, left, top, right), fill=colour)
-        regions_filepath = os.path.join(folderpath, "regions.bmp")
         image.save(regions_filepath)
         LOGGER.info("Saved regions!")
 
