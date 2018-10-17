@@ -44,13 +44,22 @@ class Planner:
     OUTPUT_LIMIT = 100
 
     def __init__(self, robot, world, motion_filepath, output_filepath):
+        with open(motion_filepath) as motion_file:
+            motion_reader = csv.reader(motion_file)
+            get_motion_row = get_coerced_reader_row_helper(motion_reader, motion_filepath)
+            position = get_motion_row([float] * 2, "start position")
+            heading = math.radians(get_motion_row([float], "start heading"))
+            foot_vertices = [get_motion_row([float] * 2, "start foot vertex") for _ in LEGS]
+            self.start_config = RobotConfig(robot, position, heading, foot_vertices, START_COLOUR)
+            position = get_motion_row([float] * 2, "goal position")
+            heading = math.radians(get_motion_row([float], "goal heading"))
+            foot_vertices = [get_motion_row([float] * 2, "goal foot vertex") for _ in LEGS]
+            self.goal_config = RobotConfig(robot, position, heading, foot_vertices, GOAL_COLOUR)
         self.robot = robot
         self.world = world
-        self.start_config, self.goal_config = self.get_motion(robot, motion_filepath)
         robot_hash = self.robot.__hash__()
         world_hash = self.world.__hash__()
-        motion_hash = hash((self.start_config, self.goal_config))
-        output_directory = f"robot-{robot_hash}/world-{world_hash}/motion-{motion_hash}"
+        output_directory = f"robot-{robot_hash}/world-{world_hash}"
         self.output_filepath = os.path.join(output_filepath, output_directory)
         # Make ouput directory if it doesn't already exist
         if not os.path.exists(self.output_filepath):
@@ -58,26 +67,8 @@ class Planner:
         # Save valid regions bmp for the provided robot.
         self.world.save_regions_bmp(self.robot, self.output_filepath)
         self.graph = nx.DiGraph()
-        self.previous_configs = []
         self.output_count = 0
         self.initialise()
-
-    def get_motion(self, robot, motion_filepath):
-        """
-        Returns the motion plan from the given filepath.
-        """
-        with open(motion_filepath) as motion_file:
-            motion_reader = csv.reader(motion_file)
-            get_motion_row = get_coerced_reader_row_helper(motion_reader, motion_filepath)
-            position = get_motion_row([float] * 2, "start position")
-            heading = math.radians(get_motion_row([float], "start heading"))
-            foot_vertices = [get_motion_row([float] * 2, "start foot vertex") for _ in LEGS]
-            start_config = RobotConfig(robot, position, heading, foot_vertices, START_COLOUR)
-            position = get_motion_row([float] * 2, "goal position")
-            heading = math.radians(get_motion_row([float], "goal heading"))
-            foot_vertices = [get_motion_row([float] * 2, "goal foot vertex") for _ in LEGS]
-            goal_config = RobotConfig(robot, position, heading, foot_vertices, GOAL_COLOUR)
-        return start_config, goal_config
 
     def initialise(self):
         """
@@ -90,7 +81,7 @@ class Planner:
         self.is_complete = False
         self.current_config = self.start_config
         self.reset_graph()
-        self.previous_configs.clear()
+        self.previous_configs = []
         self.last_sampled_config = None
 
     def reset_graph(self):
