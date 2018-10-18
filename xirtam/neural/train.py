@@ -18,7 +18,7 @@ def parse_args():
         "--robot_dir_path",
         type=str,
         help="Path to base robot directory containing training/test data",
-        required=True
+        required=True,
     )
     parser.add_argument(
         "-l",
