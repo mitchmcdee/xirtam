@@ -18,6 +18,7 @@ def parse_args():
         "--robot_dir_path",
         type=str,
         help="Path to base robot directory containing training/test data",
+        required=True
     )
     parser.add_argument(
         "-l",
@@ -61,16 +62,16 @@ def train(robot_dir_path, log_dir_path, model_dir_path, epochs, batch_size, opti
     """
     Trains TimTamNet and exports model state throughout the training process.
     """
+    # Make model directory if it doesn't already exist.
+    if not os.path.exists(model_dir_path):
+        os.makedirs(model_dir_path)
+    model_output_path = os.path.join(model_dir_path, "weights.{epoch:02d}-{val_loss:.6f}.hdf5")
     # Setup callbacks.
     tensorboard = TensorBoard(log_dir=log_dir_path, write_graph=False)
     checkpoint = ModelCheckpoint(
         model_output_path, verbose=1, mode="min", save_best_only=True, save_weights_only=True
     )
     callbacks_list = [checkpoint, tensorboard]
-    # Make model directory if it doesn't already exist.
-    if not os.path.exists(model_dir_path):
-        os.makedirs(model_dir_path)
-    model_output_path = os.path.join(model_dir_path, "weights.{epoch:02d}-{val_loss:.6f}.hdf5")
     # Get training/test data.
     x_train, x_test, y_train, y_test = get_data(robot_dir_path)
     input_shape = x_train.shape[1:]
@@ -92,4 +93,4 @@ def train(robot_dir_path, log_dir_path, model_dir_path, epochs, batch_size, opti
 
 if __name__ == "__main__":
     training_args = parse_args()
-    train(*vars(training_args))
+    train(**vars(training_args))

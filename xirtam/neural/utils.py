@@ -8,7 +8,7 @@ from tqdm import tqdm
 from skimage.io import imread
 
 
-def get_data(robot_directory):
+def get_data(robot_dir):
     """
     Retrives the training/test data from the given robot directory.
     """
@@ -17,12 +17,14 @@ def get_data(robot_directory):
     x_test = []
     y_test = []
     for data_type in ("train", "test"):
-        data_folder = join(robot_directory, data_type)
+        data_dir = join(robot_dir, data_type)
         data_x = x_train if data_type == "train" else x_test
         data_y = y_train if data_type == "train" else y_test
         # Sort to ensure deterministic results.
-        for world_name in tqdm(list(sorted(listdir(data_folder)))):
-            world_dir = join(data_folder, world_name)
+        for world_name in tqdm(list(sorted(listdir(data_dir)))):
+            if "world" not in world_name:
+                continue
+            world_dir = join(data_dir, world_name)
             world_x = []
             world_y = []
             # Sort to ensure deterministic results.
