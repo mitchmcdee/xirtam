@@ -33,4 +33,4 @@ class SimulationParser(argparse.ArgumentParser):
         self.add_argument(
             "-m", "--motion_filepath", type=str, help="Path to motion file", default="./test.motion"
         )
-        self.add_argument("-p", "--policy_filepath", type=str, help="Path to policy model file")
+        self.add_argument("-n", "--model_filepath", type=str, help="Path to neural net model file")
