@@ -86,11 +86,15 @@ def generate_world(num_rows, num_cols, invalid_percentage, num_genesis_cells):
     """
     Generates world cells to the given paramaters.
     """
+
+    def is_bad_cell(cell):
+        cell_x, cell_y = cell
+        return cell_x in (-1, num_cols) or cell_y in (-1, num_rows) or cell in invalid_cells
+
     invalid_cells = []
     # Add genesis cells
     for _ in range(num_genesis_cells):
         invalid_cells.append((randrange(0, num_cols), randrange(0, num_rows)))
-    is_bad_cell = lambda c: c[0] in (-1, num_cols) or c[1] in (-1, num_rows) or c in invalid_cells
     max_invalid_cells = int(invalid_percentage * num_rows * num_cols)
     # Place invalid cells while under limit.
     while len(invalid_cells) < max_invalid_cells:
