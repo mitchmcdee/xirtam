@@ -23,5 +23,5 @@ def TimTamNet(input_shape=(128, 128, 1)):
     timtamnet.add(Conv2D(4, (3, 3), padding="same", activation="relu"))
     timtamnet.add(Conv2D(4, (3, 3), padding="same", activation="relu"))
     timtamnet.add(UpSampling2D((2, 2)))
-    timtamnet.add(Conv2D(1, (1, 1), padding="same",activation="sigmoid"))
+    timtamnet.add(Conv2D(1, (1, 1), padding="same", activation="sigmoid"))
     return timtamnet
