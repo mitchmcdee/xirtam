@@ -6,6 +6,7 @@ import csv
 import logging
 import pyglet
 import hashlib
+import numpy as np
 from PIL import Image, ImageDraw
 from enum import Enum
 from itertools import cycle
@@ -59,23 +60,25 @@ class WorldVisibilityState(Enum):
     Visibility state of the world.
     """
 
-    ALL = 0
-    OFF = 1
-    PLACEMENTS = 2
-    REGIONS = 3
+    REGIONS_PLACEMENTS = 0
+    PLACEMENTS = 1
+    OFF = 2
+    BELIEFS = 3
+    BELIEFS_PLACEMENTS = 4
+    REGIONS = 5
 
 
-class World:
+class World(Rectangle):
     """
     An interactable virtual world.
     """
 
-    def __init__(self, world_filepath):
+    def __init__(self, world_path):
         # Parse world file
-        with open(world_filepath) as world_file:
+        with open(world_path) as world_file:
             world_reader = csv.reader(world_file)
-            get_world_row = get_coerced_reader_row_helper(world_reader, world_filepath)
-            self.bounding_box = Rectangle(*get_world_row([float] * 4, "world bounding box"))
+            get_world_row = get_coerced_reader_row_helper(world_reader, world_path)
+            super().__init__(*get_world_row([float] * 4, "world bounding box"))
             num_region = get_world_row([int], "# of regions")
             self.regions = []
             for _ in range(num_region):
@@ -90,7 +93,7 @@ class World:
         """
         Returns the unique hash for the world.
         """
-        return hash((self.bounding_box, tuple(self.regions)))
+        return hash((super().__hash__(), tuple(self.regions)))
 
     def initialise(self):
         """
@@ -100,6 +103,7 @@ class World:
         self.invalid_placements = []
         self.region_batch = pyglet.graphics.Batch()
         self.placements_batch = pyglet.graphics.Batch()
+        self.belief = None
         # Add all region to batch draw
         permeablities = [region.permeability for region in self.regions]
         min_permeability = min(permeablities)
@@ -129,6 +133,18 @@ class World:
         Handle the user attempting to toggle the world view of the simulation.
         """
         self.visibility_state = next(self.visibility_iterator)
+        # If we have no beliefs, skip over those states.
+        while self.belief is None and "BELIEFS" in self.visibility_state:
+            self.visibility_state = next(self.visibility_iterator)
+
+    def set_belief(self, belief_data):
+        """
+        Creates a textured rectangle of the robot's current world belief.
+        """
+        # Transpose since we flip x and y in the world.
+        belief_data = [int(i * 255) for row in np.transpose(belief_data) for i in row]
+        rawData = (pyglet.gl.GLubyte * len(belief_data))(*belief_data)
+        self.belief = pyglet.image.ImageData(*OUTPUT_BMP_DIMENSIONS, "L", rawData)
 
     def is_valid_config(self, config):
         """
@@ -175,9 +191,9 @@ class World:
                     return True
         return False
 
-    def save_placements_bmp(self, robot, output_directory):
+    def get_placements_bmp(self, robot):
         """
-        Saves the foot placements as a bitmap file.
+        Gets the robot valid and invalid foot placements as a bitmap image.
         """
         image = Image.new("L", OUTPUT_BMP_DIMENSIONS)
         draw = ImageDraw.Draw(image)
@@ -190,27 +206,30 @@ class World:
                 pixels[i, j] = OUTPUT_DEFAULT_COLOUR
         # Add valid placements
         for placement in self.valid_placements:
-            translated_bounds = get_translated_bounds(
-                placement.bounds, self.bounding_box.bounds, output_bounds
-            )
+            translated_bounds = get_translated_bounds(placement.bounds, self.bounds, output_bounds)
             left, top, right, bottom = list(map(int, translated_bounds))
             draw.ellipse((bottom, left, top, right), fill=OUTPUT_VALID_COLOUR)
         # Add invalid placements
         for placement in self.invalid_placements:
-            translated_bounds = get_translated_bounds(
-                placement.bounds, self.bounding_box.bounds, output_bounds
-            )
+            translated_bounds = get_translated_bounds(placement.bounds, self.bounds, output_bounds)
             left, top, right, bottom = list(map(int, translated_bounds))
             draw.ellipse((bottom, left, top, right), fill=OUTPUT_INVALID_COLOUR)
+        return image
+
+    def save_placements_bmp(self, robot, output_directory):
+        """
+        Saves the robot valid and invalid foot placements as a bitmap file.
+        """
+        image = self.get_placements_bmp(robot)
         # Save unique image if it doesn't already exist
         image_hash = hashlib.sha512(image.tobytes()).hexdigest()
-        placements_filepath = os.path.join(output_directory, f"{image_hash}.bmp")
-        if os.path.exists(placements_filepath):
+        placements_path = os.path.join(output_directory, f"{image_hash}.bmp")
+        if os.path.exists(placements_path):
             return
         # Make ouput directory if it doesn't already exist
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
-        image.save(placements_filepath)
+        image.save(placements_path)
         LOGGER.info("Saved placements!")
         # Save regions for the given placement if it doesn't exist.
         self.save_regions_bmp(robot, output_directory)
@@ -222,8 +241,8 @@ class World:
         # Make ouput directory if it doesn't already exist
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
-        regions_filepath = os.path.join(output_directory, "regions.bmp")
-        if os.path.exists(regions_filepath):
+        regions_path = os.path.join(output_directory, "regions.bmp")
+        if os.path.exists(regions_path):
             return
         image = Image.new("L", OUTPUT_BMP_DIMENSIONS)
         draw = ImageDraw.Draw(image)
@@ -236,23 +255,23 @@ class World:
                 pixels[i, j] = OUTPUT_DEFAULT_COLOUR
         # Add regions
         for region in self.regions:
-            translated_bounds = get_translated_bounds(
-                region.bounds, self.bounding_box.bounds, output_bounds
-            )
+            translated_bounds = get_translated_bounds(region.bounds, self.bounds, output_bounds)
             left, top, right, bottom = list(map(int, translated_bounds))
             if robot.can_hold(region.permeability):
                 colour = OUTPUT_VALID_COLOUR
             else:
                 colour = OUTPUT_INVALID_COLOUR
             draw.rectangle((bottom, left, top, right), fill=colour)
-        image.save(regions_filepath)
+        image.save(regions_path)
         LOGGER.info("Saved regions!")
 
     def draw(self):
         """
         Draw the world region.
         """
-        if self.visibility_state in (WorldVisibilityState.ALL, WorldVisibilityState.REGIONS):
+        if "REGIONS" in self.visibility_state.name:
             self.region_batch.draw()
-        if self.visibility_state in (WorldVisibilityState.ALL, WorldVisibilityState.PLACEMENTS):
+        if "PLACEMENTS" in self.visibility_state.name:
             self.placements_batch.draw()
+        if self.belief is not None and "BELIEFS" in self.visibility_state.name:
+            self.belief.blit(x=self.x, y=self.y, width=self.width, height=self.height)

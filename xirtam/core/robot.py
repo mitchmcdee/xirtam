@@ -31,10 +31,10 @@ class Robot:
 
     NUM_LEGS = 4
 
-    def __init__(self, robot_filepath: str) -> None:
-        with open(robot_filepath) as robot_file:
+    def __init__(self, robot_path: str) -> None:
+        with open(robot_path) as robot_file:
             robot_reader = csv.reader(robot_file)
-            get_robot_row = get_coerced_reader_row_helper(robot_reader, robot_filepath)
+            get_robot_row = get_coerced_reader_row_helper(robot_reader, robot_path)
             self.body_length = get_robot_row([float], "body length")
             self.femur_length = get_robot_row([float], "femur length")
             self.tibia_length = get_robot_row([float], "tibia length")
@@ -64,14 +64,14 @@ class Robot:
         """
         return material_permeability >= self.min_permeability
 
-    def get_random_config(self, world: World):
+    def get_random_config(self, world: World, start_position: Point2D = None):
         """
         Returns the robot in a random position and of random pose within the given world.
         Note: This function provides no guarantees on the validity of the config.
         """
-        left, top, right, bottom = world.bounding_box.bounds
-        # Place in a random position in workspace with random heading
-        position = Point2D(uniform(left, right), uniform(bottom, top))
+        left, top, right, bottom = world.bounds
+        # Place with random heading, in a random position in workspace if one wasn't provided.
+        position = start_position or Point2D(uniform(left, right), uniform(bottom, top))
         heading = uniform(0, 2 * math.pi)
         # Place feet in world relative to the body. Adopt a natural, equidistant foot stance.
         foot_vertices = []
@@ -98,7 +98,7 @@ class RobotConfig:
         self.robot = robot
         self.colour = colour
         # Alternate colour to aide diffentiation between sides of the robot.
-        self.alt_colour = tuple([int(clamp(BODY_ALT_MODIFIER * c, 0, 255)) for c in self.colour])
+        self.alt_colour = self.get_alt_colour(colour)
         self.heading = heading
         self.position = position
         self.foot_vertices = foot_vertices
@@ -113,7 +113,8 @@ class RobotConfig:
         same way with the same foot placements.
         """
         return (
-            self.robot == other.robot
+            isinstance(other, self.__class__)
+            and self.robot == other.robot
             and self.heading == other.heading
             and self.position == other.position
             and all(self.footprints[i] == other.footprints[i] for i in range(Robot.NUM_LEGS))
@@ -124,6 +125,19 @@ class RobotConfig:
         Returns the unique hash for the config.
         """
         return hash((self.robot, self.heading, self.position, tuple(self.footprints)))
+
+    def get_alt_colour(self, colour):
+        """
+        Returns the alt colour of the given colour.
+        """
+        return tuple([int(clamp(BODY_ALT_MODIFIER * c, 0, 255)) for c in self.colour])
+
+    def set_colour(self, colour):
+        """
+        Update the colour and alt colour of the robot.
+        """
+        self.colour = colour
+        self.alt_colour = self.get_alt_colour(colour)
 
     def copy(self):
         """
@@ -265,7 +279,7 @@ class RobotConfig:
             return False
         # Check feet are within world bounds.
         for footprint in self.footprints:
-            if not world.bounding_box.intersects(footprint):
+            if not world.intersects(footprint):
                 return False
         # Rotate feet back to robot's "north"-heading.
         footprints = [

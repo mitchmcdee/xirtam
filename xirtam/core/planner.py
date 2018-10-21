@@ -6,9 +6,15 @@ import csv
 import logging
 import pyglet
 import math
+import sys
 import networkx as nx
+import numpy as np
+import hashlib
+from skimage.io import imsave
+from functools import partial
+from xirtam.utils.geometry.point2d import Point2D
 from xirtam.core.robot import RobotConfig, Robot
-from xirtam.utils.utils import get_coerced_reader_row_helper
+from xirtam.utils.utils import get_coerced_reader_row_helper, translate
 from xirtam.core.settings import (
     START_COLOUR,
     GOAL_COLOUR,
@@ -16,7 +22,10 @@ from xirtam.core.settings import (
     PLANNING_COLOUR,
     ROBOT_LINE_WIDTH,
     EXECUTION_FPS_LIMIT,
+    OUTPUT_BMP_DIMENSIONS,
+    FPS_JUMP,
 )
+from xirtam.neural.timtamnet import TimTamNet
 
 LOGGER = logging.getLogger(__name__)
 LEGS = range(Robot.NUM_LEGS)
@@ -48,54 +57,106 @@ class TrainingQualityException(Exception):
 
 class Planner:
     """
-    A robot path planner. Utilises PRM during training and samples from a precomputed
-    model during playback simulation.
+    A robot path planner.
     """
 
-    # TODO(mitch): tinker with this value?
-    # Note: low is good!! might have to change for more complex graphs though
+    # Constants
+    # Graph size limit before it is reset.
     GRAPH_SIZE_LIMIT = 10
-    # TODO(mitch): tinker with this value?
+    # Image output limit before trainer is killed.
     OUTPUT_LIMIT = 50
-    # TODO(mitch): tinker with this value?
+    # Time before trainer is killed.
     TIME_LIMIT = 5 * 60
 
-    def __init__(self, robot, world, motion_filepath, output_filepath):
-        with open(motion_filepath) as motion_file:
+    # Variables
+    # Graph containing potentially connected configuration samples.
+    graph = nx.DiGraph()
+    # Amount of time in seconds since the planner has started.
+    run_time = 0
+    # Number of images the planner has output.
+    output_count = 0
+    # Belief model for the robot.
+    model = None
+    # Execution fps limit.
+    fps_limit = EXECUTION_FPS_LIMIT / 2
+    # Amount of time in seconds since the last execution move.
+    time_since_last_execute = 0
+    # Boolean representing whether the planner is paused.
+    is_paused = False
+    # Boolean representing whether the planner has started planning.
+    is_started = False
+    # Boolean representing whether the planner is currently executing.
+    is_executing = False
+    # Boolean representing whether the planner has gotten to goal.
+    is_complete = False
+    # Current configuration in the execution sequence.
+    current_config = None
+    # Motion plan start configuration.
+    start_config = None
+    # Last configuration sampled.
+    last_sampled_config = None
+    # List of configurations since the last valid "checkpoint" configuration.
+    # Note: A checkpoint configuration is one that occurs every NUM_LEGS + body configurations.
+    previous_configs = []
+
+    def __init__(self, robot, world, motion_path, output_path, model_path):
+        self.start_config, self.goal_config = self.get_motion_config(robot, motion_path)
+        self.robot = robot
+        self.world = world
+        self.model = None
+        # If we have a model, get samples from the model. Else, get random configs.
+        if model_path is None:
+            self.get_random_sample = partial(self.robot.get_random_config, world=self.world)
+        else:
+            self.model = TimTamNet(input_shape=(*OUTPUT_BMP_DIMENSIONS, 1))
+            self.model.load_weights(model_path)
+            self.get_random_sample = self.get_model_sample
+        output_directory = f"robot-{self.robot.__hash__()}/world-{self.world.__hash__()}"
+        self.output_path = os.path.join(output_path, output_directory)
+        self.initialise()
+
+    def get_motion_config(self, robot, motion_path):
+        """
+        Returns the motion path configuration of the given motion path.
+        """
+        with open(motion_path) as motion_file:
             motion_reader = csv.reader(motion_file)
-            get_motion_row = get_coerced_reader_row_helper(motion_reader, motion_filepath)
+            get_motion_row = get_coerced_reader_row_helper(motion_reader, motion_path)
             position = get_motion_row([float] * 2, "start position")
             heading = math.radians(get_motion_row([float], "start heading"))
             foot_vertices = [get_motion_row([float] * 2, "start foot vertex") for _ in LEGS]
-            self.start_config = RobotConfig(robot, position, heading, foot_vertices, START_COLOUR)
+            start_config = RobotConfig(robot, position, heading, foot_vertices, START_COLOUR)
             position = get_motion_row([float] * 2, "goal position")
             heading = math.radians(get_motion_row([float], "goal heading"))
             foot_vertices = [get_motion_row([float] * 2, "goal foot vertex") for _ in LEGS]
-            self.goal_config = RobotConfig(robot, position, heading, foot_vertices, GOAL_COLOUR)
-        self.robot = robot
-        self.world = world
-        robot_hash = self.robot.__hash__()
-        world_hash = self.world.__hash__()
-        output_directory = f"robot-{robot_hash}/world-{world_hash}"
-        self.output_filepath = os.path.join(output_filepath, output_directory)
-        self.graph = nx.DiGraph()
-        self.output_count = 0
-        self.run_time = 0
-        self.initialise()
+            goal_config = RobotConfig(robot, position, heading, foot_vertices, GOAL_COLOUR)
+        return start_config, goal_config
 
     def initialise(self):
         """
         Initialise planner.
         """
+        self.fps_limit = EXECUTION_FPS_LIMIT / 2
         self.time_since_last_execute = 0
-        self.is_paused = False
-        self.is_started = False
-        self.is_executing = False
-        self.is_complete = False
+        self.is_paused = self.is_started = self.is_executing = self.is_complete = False
         self.current_config = self.start_config
         self.reset_graph()
         self.previous_configs = []
         self.last_sampled_config = None
+        if self.model is not None:
+            self.reset_beliefs()
+
+    def reset_beliefs(self):
+        """
+        Reset the underlying environment beliefs.
+        """
+        # Initially, we have no knowledge of the underlying environment, so we set to zero.
+        graph_width, graph_height = OUTPUT_BMP_DIMENSIONS
+        self.belief_map = nx.DiGraph()
+        for i in range(graph_width):
+            for j in range(graph_height):
+                self.belief_map.add_node((i, j), weight=0.0)
+        self.update_current_belief()
 
     def reset_graph(self):
         """
@@ -105,6 +166,18 @@ class Planner:
         self.graph.add_node(self.current_config)
         self.graph.add_node(self.goal_config)
         self.graph.add_edges_from(self.get_config_edges(self.current_config, self.goal_config))
+
+    def handle_plus(self):
+        """
+        Handle the user attempting to increase the speed of the simulation.
+        """
+        self.fps_limit = min(EXECUTION_FPS_LIMIT, self.fps_limit + FPS_JUMP)
+
+    def handle_minus(self):
+        """
+        Handle the user attempting to decrease the speed of the simulation.
+        """
+        self.fps_limit = max(sys.float_info.epsilon, self.fps_limit - FPS_JUMP)
 
     def handle_reset(self):
         """
@@ -125,6 +198,56 @@ class Planner:
         if self.is_started:
             self.is_paused = not self.is_paused
 
+    def update_current_belief(self, belief=None):
+        """
+        Updates the current belief of the underlying environment.
+        """
+        belief = belief or get_current_belief()
+        self.world.set_belief(belief)
+        for x, row in enumerate(belief):
+            for y, intensity in enumerate(row):
+                self.belief_map.nodes[(x, y)]["weight"] = intensity
+
+    def get_current_belief(self):
+        """
+        Gets the current belief of the environment from the model.
+        """
+        placements = self.world.get_placements_bmp(self.robot)
+        placements = np.array(placements).astype("float32") / 255
+        # TODO(mitch): Remove this \/
+        placements_hash = hashlib.sha512(placements.view(np.uint8)).hexdigest()
+        imsave(f"./testing/input/{placements_hash}.bmp", placements)
+        # TODO(mitch): Remove this /\
+        # Reshape to 4D tensor (sample_size, image_width, image_height, num_channels).
+        placements_size = placements.shape
+        placements = np.reshape(placements, (1, *placements_size, 1))
+        belief = self.model.predict(placements).reshape(*placements_size)
+        return belief
+
+    def get_model_sample(self):
+        """
+        Gets a random sample from the belief model.
+        # TODO(mitch): convert this to use uniform discretisation. Cleanup + comment.
+        """
+        belief = self.get_current_belief()
+        self.update_current_belief(belief)
+        width, height = belief.shape
+        # TODO(mitch): Remove this \/
+        image_hash = hashlib.sha512(belief.view(np.uint8)).hexdigest()
+        imsave(f"./testing/output/{image_hash}.bmp", belief)
+        # TODO(mitch): Remove this /\
+        belief = belief.flatten()
+        prediction_indices = np.arange(len(belief))
+        # TODO(mitch): mess with contrast here?
+        inverted_prediction = np.ones(belief.shape) - belief
+        probability = inverted_prediction / np.linalg.norm(inverted_prediction, ord=1)
+        sampled_index = np.random.choice(prediction_indices, p=probability)
+        world_left, world_top, world_right, world_bottom = self.world.bounds
+        world_x = translate(sampled_index % width, 0, width, world_left, world_right)
+        world_y = translate(sampled_index // height, 0, height, world_bottom, world_top)
+        sampled_position = Point2D(world_x, world_y)
+        return self.robot.get_random_config(self.world, sampled_position)
+
     def update(self, delta_time, is_training):
         """
         Perform an update given the elapsed time.
@@ -139,7 +262,7 @@ class Planner:
         if self.is_complete:
             if not is_training:
                 return
-            # Restart training
+            # Restart training.
             self.world.handle_reset()
             self.handle_reset()
             self.handle_start()
@@ -158,14 +281,15 @@ class Planner:
         """
         self.time_since_last_execute += delta_time
         # If we're not training and execution time hasn't been reached, return for now.
-        if not is_training and self.time_since_last_execute < (1 / EXECUTION_FPS_LIMIT):
+        if not is_training and self.time_since_last_execute < (1 / self.fps_limit):
             return
         self.time_since_last_execute = 0
         # If we're at goal, completed.
         if self.current_config == self.goal_config:
             LOGGER.info("Got to goal!")
             self.is_complete = True
-            self.world.save_placements_bmp(self.robot, self.output_filepath)
+            self.world.save_placements_bmp(self.robot, self.output_path)
+            self.update_current_belief()
             self.output_count += 1
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
@@ -177,7 +301,7 @@ class Planner:
         else:
             LOGGER.info("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
-            self.world.save_placements_bmp(self.robot, self.output_filepath)
+            self.world.save_placements_bmp(self.robot, self.output_path)
             self.output_count += 1
         next_config = next(self.execution_path, None)
         # If we've exhausted the execution path, start planning again.
@@ -206,9 +330,7 @@ class Planner:
         """
         Samples new config and attempts to add it to the graph.
         """
-        # TODO(mitch): sample from precomputed model during playback, sample from config space
-        # during training.
-        sample = self.robot.get_random_config(self.world)
+        sample = self.get_random_sample()
         if not sample.is_valid(self.world):
             return
         self.last_sampled_config = sample
@@ -268,10 +390,10 @@ class Planner:
         self.start_config.draw(batch)
         self.goal_config.draw(batch)
         if self.last_sampled_config is not None:
-            self.last_sampled_config.colour = PLANNING_COLOUR
+            self.last_sampled_config.set_colour(PLANNING_COLOUR)
             self.last_sampled_config.draw(batch)
-        if all(self.current_config != c for c in (None, self.start_config, self.goal_config)):
-            self.current_config.colour = EXECUTING_COLOUR
+        if self.current_config not in (None, self.start_config, self.goal_config):
+            self.current_config.set_colour(EXECUTING_COLOUR)
             self.current_config.draw(batch)
         pyglet.gl.glLineWidth(ROBOT_LINE_WIDTH)
         batch.draw()

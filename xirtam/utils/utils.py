@@ -13,8 +13,8 @@ class FileFormatException(Exception):
     Raised when a file has incorrect format during parsing.
     """
 
-    def __init__(self, line_number: float, filepath: str, error: str) -> None:
-        self.message = f"Line {line_number} of '{filepath}': {error}"
+    def __init__(self, line_number: float, path: str, error: str) -> None:
+        self.message = f"Line {line_number} of '{path}': {error}"
         super().__init__(self.message)
 
 
@@ -48,15 +48,15 @@ def get_circle_call(x: float, y: float, z: float, r: float, num_vertices, colour
     )
 
 
-def get_coerced_reader_row_helper(reader, filepath: str):
+def get_coerced_reader_row_helper(reader, path: str):
     """
     Helper function that returns a partially filled out coerced reader row function.
     """
-    return partial(get_coerced_reader_row, reader=reader, filepath=filepath)
+    return partial(get_coerced_reader_row, reader=reader, path=path)
 
 
 def get_coerced_reader_row(
-    types: List[Any], description: str, reader, filepath: str, validity_fn=lambda *_: True
+    types: List[Any], description: str, reader, path: str, validity_fn=lambda *_: True
 ):
     """
     Attempts to coerce the given CSV reader row to the given list of types. If there are no
@@ -68,15 +68,15 @@ def get_coerced_reader_row(
     """
     row = next(reader, None)
     if row is None:
-        raise FileFormatException(reader.line_num, filepath, "Missing " + description)
+        raise FileFormatException(reader.line_num, path, "Missing " + description)
     try:
         row = tuple([types[i](element) for i, element in enumerate(row)])
     except ValueError:
-        raise FileFormatException(reader.line_num, filepath, "Could not coerce " + description)
+        raise FileFormatException(reader.line_num, path, "Could not coerce " + description)
     # If there's only one element, bring it out of the list.
     items = row[0] if len(row) == 1 else row
     if len(row) != len(types) or not validity_fn(items):
-        raise FileFormatException(reader.line_num, filepath, "Invalid " + description)
+        raise FileFormatException(reader.line_num, path, "Invalid " + description)
     return items
 
 

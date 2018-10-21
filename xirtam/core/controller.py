@@ -118,6 +118,12 @@ class Controller:
         if Command.TOGGLE_WORLD in self.debounced_key_handler:
             self.model.handle_toggle_world()
 
+        if Command.PLUS in self.debounced_key_handler:
+            self.model.handle_plus()
+
+        if Command.MINUS in self.debounced_key_handler:
+            self.model.handle_minus()
+
         if Command.LEFT in self.key_handler:
             self.view.handle_left(delta_time)
 

@@ -16,9 +16,10 @@ parsed_args = SimulationParser().parse_args()
 # Run manager
 manager = TrainerManager if parsed_args.trainer else SimulatorManager
 manager(
-    world_filepath=parsed_args.world_filepath,
-    robot_filepath=parsed_args.robot_filepath,
-    motion_filepath=parsed_args.motion_filepath,
-    output_filepath=parsed_args.output_filepath,
+    world_path=parsed_args.world_path,
+    robot_path=parsed_args.robot_path,
+    motion_path=parsed_args.motion_path,
+    output_path=parsed_args.output_path,
+    model_path=parsed_args.model_path,
     generate_case=parsed_args.generate_case,
 ).run()

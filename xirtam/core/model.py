@@ -16,10 +16,10 @@ class Model:
     which can be manipulated and interacted with.
     """
 
-    def __init__(self, world_filepath, robot_filepath, motion_filepath, output_filepath):
-        self.world = World(world_filepath)
-        self.robot = Robot(robot_filepath)
-        self.planner = Planner(self.robot, self.world, motion_filepath, output_filepath)
+    def __init__(self, world_path, robot_path, motion_path, output_path, model_path):
+        self.world = World(world_path)
+        self.robot = Robot(robot_path)
+        self.planner = Planner(self.robot, self.world, motion_path, output_path, model_path)
 
     def handle_start(self):
         """
@@ -39,6 +39,18 @@ class Model:
         Handle the user attempting to pause the simulation.
         """
         self.planner.handle_pause()
+
+    def handle_plus(self):
+        """
+        Handle the user attempting to increase the speed of the simulation.
+        """
+        self.planner.handle_plus()
+
+    def handle_minus(self):
+        """
+        Handle the user attempting to decrease the speed of the simulation.
+        """
+        self.planner.handle_minus()
 
     def handle_toggle_world(self):
         """

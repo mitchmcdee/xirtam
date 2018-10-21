@@ -23,6 +23,8 @@ class Command(Enum):
     PAUSE = [pyglet.window.key.P]
     RESET = [pyglet.window.key.R]
     TOGGLE_WORLD = [pyglet.window.key.T]
+    PLUS = [pyglet.window.key.EQUAL]
+    MINUS = [pyglet.window.key.MINUS]
     # SAVE = [pyglet.window.key.LCOMMAND, pyglet.window.key.S]
     # OPEN = [pyglet.window.key.LCOMMAND, pyglet.window.key.O]
 
@@ -53,7 +55,8 @@ PLANNING_COLOUR = (15, 75, 15)
 EXECUTING_COLOUR = (75, 75, 15)
 BODY_ALT_MODIFIER = 4.0
 ROBOT_LINE_WIDTH = 5.0
-EXECUTION_FPS_LIMIT = 1000.0
+EXECUTION_FPS_LIMIT = 100.0
+FPS_JUMP = EXECUTION_FPS_LIMIT / 20
 
 # World rendering
 VALID_COLOUR = (50, 200, 50)
