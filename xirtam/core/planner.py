@@ -202,7 +202,8 @@ class Planner:
         """
         Updates the current belief of the underlying environment.
         """
-        belief = belief or get_current_belief()
+        if belief is None:
+            belief = self.get_current_belief()
         self.world.set_belief(belief)
         for x, row in enumerate(belief):
             for y, intensity in enumerate(row):
