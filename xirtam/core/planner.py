@@ -215,14 +215,15 @@ class Planner:
         """
         placements = self.world.get_placements_bmp(self.robot)
         placements = np.array(placements).astype("float32") / 255
+        placements_size = placements.shape
         # TODO(mitch): Remove this \/
-        placements_hash = hashlib.sha512(placements.view(np.uint8)).hexdigest()
+        placements_hash = hashlib.sha512(placements).hexdigest()
         imsave(f"./testing/input/{placements_hash}.bmp", placements)
         # TODO(mitch): Remove this /\
         # Reshape to 4D tensor (sample_size, image_width, image_height, num_channels).
-        placements_size = placements.shape
         placements = np.reshape(placements, (1, *placements_size, 1))
         belief = self.model.predict(placements).reshape(*placements_size)
+        # TODO(mitch): resize belief here to something more reasonable for processing?
         return belief
 
     def get_model_sample(self):
@@ -234,15 +235,15 @@ class Planner:
         self.update_current_belief(belief)
         width, height = belief.shape
         # TODO(mitch): Remove this \/
-        image_hash = hashlib.sha512(belief.view(np.uint8)).hexdigest()
+        image_hash = hashlib.sha512(belief).hexdigest()
         imsave(f"./testing/output/{image_hash}.bmp", belief)
         # TODO(mitch): Remove this /\
         belief = belief.flatten()
-        prediction_indices = np.arange(len(belief))
-        # TODO(mitch): mess with contrast here?
-        inverted_prediction = np.ones(belief.shape) - belief
-        probability = inverted_prediction / np.linalg.norm(inverted_prediction, ord=1)
-        sampled_index = np.random.choice(prediction_indices, p=probability)
+        # TODO(mitch): mess with contrast or something here?
+        belief_indices = np.arange(len(belief))
+        inverted_belief = np.ones(belief.shape) - belief
+        probability = inverted_belief / np.linalg.norm(inverted_belief, ord=1)
+        sampled_index = np.random.choice(belief_indices, p=probability)
         world_left, world_top, world_right, world_bottom = self.world.bounds
         world_x = translate(sampled_index % width, 0, width, world_left, world_right)
         world_y = translate(sampled_index // height, 0, height, world_bottom, world_top)
