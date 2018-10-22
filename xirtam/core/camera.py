@@ -21,7 +21,7 @@ class FirstPersonCamera:
         self.dy = world.y + world.height / 2
         self.dz = max(world.height, world.width) * 1.5
         self.pitch = 0.0
-        self.yaw = 270.0
+        self.yaw = 0.0
 
     def on_mouse_motion(self, x, y, dx, dy):
         """
