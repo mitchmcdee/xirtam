@@ -151,7 +151,7 @@ class RobotConfig:
         """
         return [Circle(foot_vertex, self.robot.foot_radius) for foot_vertex in self.foot_vertices]
 
-    def interpolate_feet(self, other: "RobotConfig", world: World):
+    def interpolate_feet(self, other: "RobotConfig"):
         """
         Returns the interpolated feet configs moving from the current config
         to the given other.
@@ -172,8 +172,6 @@ class RobotConfig:
             config = RobotConfig(
                 self.robot, self.position, self.heading, new_foot_vertices, self.colour
             )
-            if not config.is_valid(world):
-                return None
             configs.append(config)
             last_config = config
         # Move body
@@ -205,7 +203,7 @@ class RobotConfig:
             )
             if not config.is_valid(world):
                 return None
-            feet_configs = last_config.interpolate_feet(config, world)
+            feet_configs = last_config.interpolate_feet(config)
             if feet_configs is None:
                 return None
             configs.extend(feet_configs)
@@ -240,7 +238,7 @@ class RobotConfig:
             )
             if not config.is_valid(world):
                 return None
-            feet_configs = last_config.interpolate_feet(config, world)
+            feet_configs = last_config.interpolate_feet(config)
             if feet_configs is None:
                 return None
             configs.extend(feet_configs)
@@ -264,7 +262,7 @@ class RobotConfig:
             return None
         configs.extend(angle_configs)
         # Add transition into goal pose.
-        feet_configs = configs[-1].interpolate_feet(goal, world)
+        feet_configs = configs[-1].interpolate_feet(goal)
         if feet_configs is None:
             return None
         configs.extend(feet_configs)
