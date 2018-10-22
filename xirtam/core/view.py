@@ -36,7 +36,7 @@ class View:
     def __init__(self, window, model, show_fps=True):
         self.window = window
         self.model = model
-        self.camera = FirstPersonCamera()
+        self.camera = FirstPersonCamera(model.world)
         if SHOW_FPS:
             self.fps_display = pyglet.window.FPSDisplay(self.window)
         # OpenGL init

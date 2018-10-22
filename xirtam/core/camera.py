@@ -4,6 +4,7 @@ Camera object for scene viewing and navigating.
 import logging
 import math
 import pyglet
+from xirtam.core.world import World
 from xirtam.core.settings import MOUSE_SENSITIVITY, MOVEMENT_SPEED, INVERTED_Y
 
 LOGGER = logging.getLogger(__name__)
@@ -14,12 +15,13 @@ class FirstPersonCamera:
     A first person camera view of the scene.
     """
 
-    # OPTIONAL_TODO(mitch): abstract these magic number constants.
-    dx = 6.0
-    dy = 6.0
-    dz = 6.0
-    pitch = -40.0
-    yaw = 225.0
+    def __init__(self, world: World):
+        # Look directly down onto world.
+        self.dx = world.x + world.width / 2
+        self.dy = world.y + world.height / 2
+        self.dz = max(world.height, world.width) * 1.5
+        self.pitch = 0.0
+        self.yaw = 270.0
 
     def on_mouse_motion(self, x, y, dx, dy):
         """
