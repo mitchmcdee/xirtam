@@ -66,15 +66,17 @@ class Robot:
         """
         return material_permeability >= self.min_permeability
 
-    def get_random_config(self, world: World, start_position: Point2D = None):
+    def get_random_config(self, world: World, position: Point2D = None, heading: float = None):
         """
         Returns the robot in a random position and of random pose within the given world.
         Note: This function provides no guarantees on the validity of the config.
         """
         left, top, right, bottom = world.bounds
-        # Place with random heading, in a random position in workspace if one wasn't provided.
-        position = start_position or Point2D(uniform(left, right), uniform(bottom, top))
-        heading = uniform(0, 2 * math.pi)
+        # If not provided, place robot with random heading in a random position in workspace.
+        if position is None:
+            position = Point2D(uniform(left, right), uniform(bottom, top))
+        if heading is None:
+            heading = uniform(0, 2 * math.pi)
         # Place feet in world relative to the body. Adopt a natural, equidistant foot stance.
         foot_vertices = []
         for foot_index in range(Robot.NUM_LEGS):
@@ -104,6 +106,8 @@ class RobotConfig:
         self.alt_colour = self.get_alt_colour(colour)
         self.heading = heading
         self.position = position
+        self.x = position.x
+        self.y = position.y
         self.foot_vertices = foot_vertices
         self.footprints = self.get_footprints()
         self.hip_vertices = self.get_hip_vertices()
@@ -260,7 +264,7 @@ class RobotConfig:
 
     def is_valid(self, world: World):
         """
-        Returns True if is a config in the workspace, else False.
+        Returns True if is a valid config in the workspace, else False.
         """
         # Check if invalidity was detected during config construction.
         if not self.valid:
