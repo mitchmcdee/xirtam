@@ -10,6 +10,9 @@ import sys
 import networkx as nx
 import numpy as np
 import hashlib
+from enum import Enum
+from itertools import cycle
+from scipy.misc import imresize
 from skimage.io import imsave
 from functools import partial
 from xirtam.utils.geometry.point2d import Point2D
@@ -23,6 +26,7 @@ from xirtam.core.settings import (
     ROBOT_LINE_WIDTH,
     EXECUTION_FPS_LIMIT,
     OUTPUT_BMP_DIMENSIONS,
+    BELIEF_DIMENSIONS,
     FPS_JUMP,
 )
 from xirtam.neural.timtamnet import TimTamNet
@@ -53,6 +57,19 @@ class TrainingQualityException(Exception):
     """
 
     pass
+
+
+class ViewState(Enum):
+    """
+    Visibility state of the simulation.
+    """
+
+    REGIONS_PLACEMENTS = 0
+    PLACEMENTS = 1
+    OFF = 2
+    BELIEFS = 3
+    BELIEFS_PLACEMENTS = 4
+    REGIONS = 5
 
 
 class Planner:
@@ -98,6 +115,8 @@ class Planner:
     # List of configurations since the last valid "checkpoint" configuration.
     # Note: A checkpoint configuration is one that occurs every NUM_LEGS + body configurations.
     previous_configs = []
+    # View of the current world belief, if any.
+    belief_view = None
 
     def __init__(self, robot, world, motion_path, output_path, model_path):
         self.start_config, self.goal_config = self.get_motion_config(robot, motion_path)
@@ -113,6 +132,8 @@ class Planner:
             self.get_random_sample = self.get_model_sample
         output_directory = f"robot-{self.robot.__hash__()}/world-{self.world.__hash__()}"
         self.output_path = os.path.join(output_path, output_directory)
+        self.visibility_iterator = cycle(ViewState)
+        self.visibility_state = next(self.visibility_iterator)
         self.initialise()
 
     def get_motion_config(self, robot, motion_path):
@@ -142,6 +163,7 @@ class Planner:
         self.current_config = self.start_config
         self.reset_graph()
         self.previous_configs = []
+        self.belief_view = None
         self.last_sampled_config = None
         if self.model is not None:
             self.reset_beliefs()
@@ -151,10 +173,10 @@ class Planner:
         Reset the underlying environment beliefs.
         """
         # Initially, we have no knowledge of the underlying environment, so we set to zero.
-        graph_width, graph_height = OUTPUT_BMP_DIMENSIONS
+        belief_width, belief_height = BELIEF_DIMENSIONS
         self.belief_map = nx.DiGraph()
-        for i in range(graph_width):
-            for j in range(graph_height):
+        for i in range(belief_width):
+            for j in range(belief_height):
                 self.belief_map.add_node((i, j), weight=0.0)
         self.update_current_belief()
 
@@ -166,6 +188,15 @@ class Planner:
         self.graph.add_node(self.current_config)
         self.graph.add_node(self.goal_config)
         self.graph.add_edges_from(self.get_config_edges(self.current_config, self.goal_config))
+
+    def handle_toggle_view(self):
+        """
+        Handle the user attempting to toggle the view of the simulation.
+        """
+        self.visibility_state = next(self.visibility_iterator)
+        # If we have no beliefs, skip over those states.
+        while self.belief_view is None and "BELIEFS" in self.visibility_state:
+            self.visibility_state = next(self.visibility_iterator)
 
     def handle_plus(self):
         """
@@ -198,13 +229,23 @@ class Planner:
         if self.is_started:
             self.is_paused = not self.is_paused
 
+    def set_belief_view(self, belief):
+        """
+        Sets the view of the current world belief.
+        """
+        # Transpose since we flip x and y in the world.
+        flat_belief = [int(i * 255) for row in np.transpose(belief) for i in row]
+        raw_belief = (pyglet.gl.GLubyte * len(flat_belief))(*flat_belief)
+        self.belief_view = pyglet.image.ImageData(*belief.shape, "L", raw_belief)
+
     def update_current_belief(self, belief=None):
         """
         Updates the current belief of the underlying environment.
         """
         if belief is None:
             belief = self.get_current_belief()
-        self.world.set_belief(belief)
+        self.set_belief_view(belief)
+        belief = imresize(belief, BELIEF_DIMENSIONS, interp="nearest")
         for x, row in enumerate(belief):
             for y, intensity in enumerate(row):
                 self.belief_map.nodes[(x, y)]["weight"] = intensity
@@ -290,9 +331,10 @@ class Planner:
         if self.current_config == self.goal_config:
             LOGGER.info("Got to goal!")
             self.is_complete = True
-            self.world.save_placements_bmp(self.robot, self.output_path)
             self.update_current_belief()
-            self.output_count += 1
+            if is_training:
+                self.world.save_placements_bmp(self.robot, self.output_path)
+                self.output_count += 1
             return
         # Sample the current config in the world for validity (i.e. check footpads adhere).
         if self.world.is_valid_config(self.current_config):
@@ -303,8 +345,10 @@ class Planner:
         else:
             LOGGER.info("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
-            self.world.save_placements_bmp(self.robot, self.output_path)
-            self.output_count += 1
+            if is_training:
+                self.world.save_placements_bmp(self.robot, self.output_path)
+                self.output_count += 1
+        # Get next execution step.
         next_config = next(self.execution_path, None)
         # If we've exhausted the execution path, start planning again.
         if next_config is None:
@@ -385,17 +429,26 @@ class Planner:
 
     def draw(self):
         """
-        Draw the current motion path, the start and goal configurations as well as any
+        Draw the world, current motion path, the start and goal configurations as well as any
         generated configurations if planning.
         """
-        batch = pyglet.graphics.Batch()
-        self.start_config.draw(batch)
-        self.goal_config.draw(batch)
+        # Draw the current world view.
+        if "REGIONS" in self.visibility_state.name:
+            self.world.region_batch.draw()
+        if "PLACEMENTS" in self.visibility_state.name:
+            self.world.placements_batch.draw()
+        if self.belief_view is not None and "BELIEFS" in self.visibility_state.name:
+            x, y, width, height = self.world.x, self.world.y, self.world.width, self.world.height
+            self.belief_view.blit(x=x, y=y, width=width, height=height)
+        # Draw configurations.
+        config_batch = pyglet.graphics.Batch()
+        self.start_config.draw(config_batch)
+        self.goal_config.draw(config_batch)
         if self.last_sampled_config is not None:
             self.last_sampled_config.set_colour(PLANNING_COLOUR)
-            self.last_sampled_config.draw(batch)
+            self.last_sampled_config.draw(config_batch)
         if self.current_config not in (None, self.start_config, self.goal_config):
             self.current_config.set_colour(EXECUTING_COLOUR)
-            self.current_config.draw(batch)
+            self.current_config.draw(config_batch)
         pyglet.gl.glLineWidth(ROBOT_LINE_WIDTH)
-        batch.draw()
+        config_batch.draw()

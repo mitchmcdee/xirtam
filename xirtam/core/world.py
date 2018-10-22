@@ -6,10 +6,7 @@ import csv
 import logging
 import pyglet
 import hashlib
-import numpy as np
 from PIL import Image, ImageDraw
-from enum import Enum
-from itertools import cycle
 from xirtam.utils.geometry.rectangle import Rectangle
 from xirtam.utils.utils import (
     get_coerced_reader_row_helper,
@@ -55,23 +52,21 @@ class WorldRegion(Rectangle):
         return hash((super().__hash__(), self.permeability))
 
 
-class WorldVisibilityState(Enum):
-    """
-    Visibility state of the world.
-    """
-
-    REGIONS_PLACEMENTS = 0
-    PLACEMENTS = 1
-    OFF = 2
-    BELIEFS = 3
-    BELIEFS_PLACEMENTS = 4
-    REGIONS = 5
-
-
 class World(Rectangle):
     """
     An interactable virtual world.
     """
+
+    # Collection of region tiles in the world.
+    regions = []
+    # Collection of valid foot placements in the world.
+    valid_placements = []
+    # Collection of invalid foot placements in the world.
+    invalid_placements = []
+    # Region draw batch.
+    region_batch = pyglet.graphics.Batch()
+    # Region draw batch.
+    placements_batch = pyglet.graphics.Batch()
 
     def __init__(self, world_path):
         # Parse world file
@@ -80,13 +75,10 @@ class World(Rectangle):
             get_world_row = get_coerced_reader_row_helper(world_reader, world_path)
             super().__init__(*get_world_row([float] * 4, "world bounding box"))
             num_region = get_world_row([int], "# of regions")
-            self.regions = []
             for _ in range(num_region):
                 permeability = get_world_row([float], "region permeability")
                 region_bounding_box = get_world_row([float] * 4, "region bounding box")
                 self.regions.append(WorldRegion(permeability, *region_bounding_box))
-        self.visibility_iterator = cycle(WorldVisibilityState)
-        self.visibility_state = next(self.visibility_iterator)
         self.initialise()
 
     def __hash__(self):
@@ -103,7 +95,6 @@ class World(Rectangle):
         self.invalid_placements = []
         self.region_batch = pyglet.graphics.Batch()
         self.placements_batch = pyglet.graphics.Batch()
-        self.belief = None
         # Add all region to batch draw
         permeablities = [region.permeability for region in self.regions]
         min_permeability = min(permeablities)
@@ -127,24 +118,6 @@ class World(Rectangle):
         Handle the user attempting to reset the simulation.
         """
         self.initialise()
-
-    def handle_toggle_world(self):
-        """
-        Handle the user attempting to toggle the world view of the simulation.
-        """
-        self.visibility_state = next(self.visibility_iterator)
-        # If we have no beliefs, skip over those states.
-        while self.belief is None and "BELIEFS" in self.visibility_state:
-            self.visibility_state = next(self.visibility_iterator)
-
-    def set_belief(self, belief_data):
-        """
-        Creates a textured rectangle of the robot's current world belief.
-        """
-        # Transpose since we flip x and y in the world.
-        belief_data = [int(i * 255) for row in np.transpose(belief_data) for i in row]
-        rawData = (pyglet.gl.GLubyte * len(belief_data))(*belief_data)
-        self.belief = pyglet.image.ImageData(*OUTPUT_BMP_DIMENSIONS, "L", rawData)
 
     def is_valid_config(self, config):
         """
@@ -264,14 +237,3 @@ class World(Rectangle):
             draw.rectangle((bottom, left, top, right), fill=colour)
         image.save(regions_path)
         LOGGER.info("Saved regions!")
-
-    def draw(self):
-        """
-        Draw the world region.
-        """
-        if "REGIONS" in self.visibility_state.name:
-            self.region_batch.draw()
-        if "PLACEMENTS" in self.visibility_state.name:
-            self.placements_batch.draw()
-        if self.belief is not None and "BELIEFS" in self.visibility_state.name:
-            self.belief.blit(x=self.x, y=self.y, width=self.width, height=self.height)

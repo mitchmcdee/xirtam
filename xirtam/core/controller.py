@@ -16,12 +16,14 @@ class Controller:
     respective bodies were appropriate.
     """
 
+    # Window activation state.
+    activated = True
+
     def __init__(self, model, view):
         self.model = model
         self.view = view
         self.key_handler = KeyHandler()
         self.debounced_key_handler = DebouncedKeyHandler()
-        self.activated = True
 
     def on_key_press(self, symbol, modifiers):
         """
@@ -115,8 +117,8 @@ class Controller:
         if Command.RESET in self.debounced_key_handler:
             self.model.handle_reset()
 
-        if Command.TOGGLE_WORLD in self.debounced_key_handler:
-            self.model.handle_toggle_world()
+        if Command.TOGGLE_VIEW in self.debounced_key_handler:
+            self.model.handle_toggle_view()
 
         if Command.PLUS in self.debounced_key_handler:
             self.model.handle_plus()

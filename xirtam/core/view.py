@@ -37,8 +37,7 @@ class View:
         self.window = window
         self.model = model
         self.camera = FirstPersonCamera()
-        self.show_fps = SHOW_FPS
-        if self.show_fps:
+        if SHOW_FPS:
             self.fps_display = pyglet.window.FPSDisplay(self.window)
         # OpenGL init
         self.on_resize(self.window.width, self.window.height)
@@ -126,5 +125,5 @@ class View:
         glEnable(GL_DEPTH_TEST)
         self.model.draw()
         self.camera.draw()
-        if self.show_fps:
+        if SHOW_FPS:
             self.fps_display.draw()

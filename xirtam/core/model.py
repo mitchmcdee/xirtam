@@ -52,11 +52,11 @@ class Model:
         """
         self.planner.handle_minus()
 
-    def handle_toggle_world(self):
+    def handle_toggle_view(self):
         """
-        Handle the user attempting to toggle the world view of the simulation.
+        Handle the user attempting to toggle the view of the simulation.
         """
-        self.world.handle_toggle_world()
+        self.planner.handle_toggle_view()
 
     def update(self, delta_time, is_training=False):
         """
@@ -68,5 +68,4 @@ class Model:
         """
         Draw the model components.
         """
-        self.world.draw()
         self.planner.draw()

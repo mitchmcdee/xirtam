@@ -1,8 +1,8 @@
 *.prof
+testing/
 .ipynb_checkpoints/
 __pycache__/
 .pytest_cache/
-models/
 out/
 .DS_Store
 *.world
