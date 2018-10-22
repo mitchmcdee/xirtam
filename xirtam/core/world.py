@@ -178,12 +178,12 @@ class World(Rectangle):
         for placement in self.valid_placements:
             translated_bounds = get_translated_bounds(placement.bounds, self.bounds, output_bounds)
             left, top, right, bottom = list(map(int, translated_bounds))
-            draw.ellipse((bottom, left, top, right), fill=OUTPUT_VALID_COLOUR)
+            draw.ellipse((left, bottom, right, top), fill=OUTPUT_VALID_COLOUR)
         # Add invalid placements
         for placement in self.invalid_placements:
             translated_bounds = get_translated_bounds(placement.bounds, self.bounds, output_bounds)
             left, top, right, bottom = list(map(int, translated_bounds))
-            draw.ellipse((bottom, left, top, right), fill=OUTPUT_INVALID_COLOUR)
+            draw.ellipse((left, bottom, right, top), fill=OUTPUT_INVALID_COLOUR)
         return image
 
     def save_placements_bmp(self, robot, output_directory):
@@ -231,6 +231,6 @@ class World(Rectangle):
                 colour = OUTPUT_VALID_COLOUR
             else:
                 colour = OUTPUT_INVALID_COLOUR
-            draw.rectangle((bottom, left, top, right), fill=colour)
+            draw.rectangle((left, bottom, right, top), fill=colour)
         image.save(regions_path)
         LOGGER.info("Saved regions!")

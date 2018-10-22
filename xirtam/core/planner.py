@@ -11,11 +11,13 @@ import networkx as nx
 import numpy as np
 import hashlib
 from enum import Enum
+from random import uniform
 from itertools import cycle
 from scipy.misc import imresize
 from skimage.io import imsave
 from functools import partial
 from xirtam.utils.geometry.point2d import Point2D
+from xirtam.utils.geometry.vector2d import Vector2D
 from xirtam.core.robot import RobotConfig, Robot
 from xirtam.utils.utils import get_coerced_reader_row_helper, translate
 from xirtam.core.settings import (
@@ -27,6 +29,7 @@ from xirtam.core.settings import (
     EXECUTION_FPS_LIMIT,
     OUTPUT_BMP_DIMENSIONS,
     BELIEF_DIMENSIONS,
+    BELIEF_LEVELS,
     FPS_JUMP,
 )
 from xirtam.neural.timtamnet import TimTamNet
@@ -84,10 +87,15 @@ class Planner:
     OUTPUT_LIMIT = 50
     # Time before trainer is killed.
     TIME_LIMIT = 5 * 60
+    # Directions connecting cells in a grid.
+    # In order: left, right, up, down, bottom-right, bottom-left, top-right, top-left.
+    DIRECTIONS = ((-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1))
 
     # Variables
     # Graph containing potentially connected configuration samples.
     graph = nx.DiGraph()
+    # Graph containing potentially connected belief regions.
+    belief_graph = nx.DiGraph()
     # Amount of time in seconds since the planner has started.
     run_time = 0
     # Number of images the planner has output.
@@ -125,11 +133,11 @@ class Planner:
         self.model = None
         # If we have a model, get samples from the model. Else, get random configs.
         if model_path is None:
-            self.get_random_sample = partial(self.robot.get_random_config, world=self.world)
+            self.sample = self.get_random_sample
         else:
             self.model = TimTamNet(input_shape=(*OUTPUT_BMP_DIMENSIONS, 1))
             self.model.load_weights(model_path)
-            self.get_random_sample = self.get_model_sample
+            self.sample = self.get_model_sample
         output_directory = f"robot-{self.robot.__hash__()}/world-{self.world.__hash__()}"
         self.output_path = os.path.join(output_path, output_directory)
         self.visibility_iterator = cycle(ViewState)
@@ -166,19 +174,7 @@ class Planner:
         self.belief_view = None
         self.last_sampled_config = None
         if self.model is not None:
-            self.reset_beliefs()
-
-    def reset_beliefs(self):
-        """
-        Reset the underlying environment beliefs.
-        """
-        # Initially, we have no knowledge of the underlying environment, so we set to zero.
-        belief_width, belief_height = BELIEF_DIMENSIONS
-        self.belief_map = nx.DiGraph()
-        for i in range(belief_width):
-            for j in range(belief_height):
-                self.belief_map.add_node((i, j), weight=0.0)
-        self.update_current_belief()
+            self.update_current_belief()
 
     def reset_graph(self):
         """
@@ -187,6 +183,7 @@ class Planner:
         self.graph.clear()
         self.graph.add_node(self.current_config)
         self.graph.add_node(self.goal_config)
+        # Attempt to add direct path from current to goal.
         self.graph.add_edges_from(self.get_config_edges(self.current_config, self.goal_config))
 
     def handle_toggle_view(self):
@@ -195,7 +192,7 @@ class Planner:
         """
         self.visibility_state = next(self.visibility_iterator)
         # If we have no beliefs, skip over those states.
-        while self.belief_view is None and "BELIEFS" in self.visibility_state:
+        while self.belief_view is None and "BELIEFS" in self.visibility_state.name:
             self.visibility_state = next(self.visibility_iterator)
 
     def handle_plus(self):
@@ -233,8 +230,7 @@ class Planner:
         """
         Sets the view of the current world belief.
         """
-        # Transpose since we flip x and y in the world.
-        flat_belief = [int(i * 255) for row in np.transpose(belief) for i in row]
+        flat_belief = [belief_level for row in belief for belief_level in row]
         raw_belief = (pyglet.gl.GLubyte * len(flat_belief))(*flat_belief)
         self.belief_view = pyglet.image.ImageData(*belief.shape, "L", raw_belief)
 
@@ -242,20 +238,32 @@ class Planner:
         """
         Updates the current belief of the underlying environment.
         """
+        self.belief_graph.clear()
         if belief is None:
             belief = self.get_current_belief()
         self.set_belief_view(belief)
-        belief = imresize(belief, BELIEF_DIMENSIONS, interp="nearest")
-        for x, row in enumerate(belief):
-            for y, intensity in enumerate(row):
-                self.belief_map.nodes[(x, y)]["weight"] = intensity
+        # Down sample image.
+        belief = imresize(belief, BELIEF_DIMENSIONS, interp="nearest").flatten()
+        # Reduce colour depth.
+        reduce_depth = partial(
+            translate,
+            left_min=np.min(belief),
+            left_max=np.max(belief),
+            right_min=0,
+            right_max=BELIEF_LEVELS - 1,
+        )
+        belief = np.array(list(map(reduce_depth, belief))).astype(int).reshape(BELIEF_DIMENSIONS)
+        # Set belief weights.
+        for y, row in enumerate(belief):
+            for x, belief_level in enumerate(row):
+                self.belief_graph.add_node((x, y), weight=belief_level)
 
     def get_current_belief(self):
         """
         Gets the current belief of the environment from the model.
         """
         placements = self.world.get_placements_bmp(self.robot)
-        placements = np.array(placements).astype("float32") / 255
+        placements = np.array(placements).astype(float) / 255
         placements_size = placements.shape
         # TODO(mitch): Remove this \/
         placements_hash = hashlib.sha512(placements).hexdigest()
@@ -263,33 +271,8 @@ class Planner:
         # TODO(mitch): Remove this /\
         # Reshape to 4D tensor (sample_size, image_width, image_height, num_channels).
         placements = np.reshape(placements, (1, *placements_size, 1))
-        belief = self.model.predict(placements).reshape(*placements_size)
-        # TODO(mitch): resize belief here to something more reasonable for processing?
-        return belief
-
-    def get_model_sample(self):
-        """
-        Gets a random sample from the belief model.
-        # TODO(mitch): convert this to use uniform discretisation. Cleanup + comment.
-        """
-        belief = self.get_current_belief()
-        self.update_current_belief(belief)
-        width, height = belief.shape
-        # TODO(mitch): Remove this \/
-        image_hash = hashlib.sha512(belief).hexdigest()
-        imsave(f"./testing/output/{image_hash}.bmp", belief)
-        # TODO(mitch): Remove this /\
-        belief = belief.flatten()
-        # TODO(mitch): mess with contrast or something here?
-        belief_indices = np.arange(len(belief))
-        inverted_belief = np.ones(belief.shape) - belief
-        probability = inverted_belief / np.linalg.norm(inverted_belief, ord=1)
-        sampled_index = np.random.choice(belief_indices, p=probability)
-        world_left, world_top, world_right, world_bottom = self.world.bounds
-        world_x = translate(sampled_index % width, 0, width, world_left, world_right)
-        world_y = translate(sampled_index // height, 0, height, world_bottom, world_top)
-        sampled_position = Point2D(world_x, world_y)
-        return self.robot.get_random_config(self.world, sampled_position)
+        belief = self.model.predict(placements)
+        return (belief * 255).astype(int).reshape(*placements_size)
 
     def update(self, delta_time, is_training):
         """
@@ -331,7 +314,8 @@ class Planner:
         if self.current_config == self.goal_config:
             LOGGER.info("Got to goal!")
             self.is_complete = True
-            self.update_current_belief()
+            if self.model is not None:
+                self.update_current_belief()
             if is_training:
                 self.world.save_placements_bmp(self.robot, self.output_path)
                 self.output_count += 1
@@ -372,11 +356,13 @@ class Planner:
             config_edges.append((config_b, config_a))
         return config_edges
 
-    def sample(self):
+    def get_random_sample(self):
         """
-        Samples new config and attempts to add it to the graph.
+        Samples new random config and attempts to add it to the graph.
         """
-        sample = self.get_random_sample()
+        if len(self.graph.nodes) >= self.GRAPH_SIZE_LIMIT:
+            self.reset_graph()
+        sample = self.robot.get_random_config(self.world)
         if not sample.is_valid(self.world):
             return
         self.last_sampled_config = sample
@@ -386,15 +372,94 @@ class Planner:
             new_config_edges.extend(self.get_config_edges(sample, config))
         self.graph.add_edges_from(new_config_edges)
 
+    def get_model_sample(self):
+        """
+        Gets a random sample from the belief model.
+        # TODO(mitch): Give this a massive clean up and abstraction and comments.
+        """
+        self.reset_graph()
+        belief = self.get_current_belief()
+        self.update_current_belief(belief)
+        # TODO(mitch): Remove this \/
+        image_hash = hashlib.sha512(belief).hexdigest()
+        imsave(f"./testing/output/{image_hash}.bmp", belief)
+        # TODO(mitch): Remove this /\
+        # Build graph edges.
+        level_cells = {level: [] for level in range(BELIEF_LEVELS)}
+        for cell, cell_data in self.belief_graph.nodes(data=True):
+            belief_level = cell_data["weight"]
+            level_cells[belief_level].append(cell)
+        # Determine current and goal cells in belief graph.
+        belief_width, belief_height = BELIEF_DIMENSIONS
+        world_left, world_top, world_right, world_bottom = self.world.bounds
+        start_x = int(translate(self.current_config.x, world_left, world_right, 0, belief_width))
+        start_y = int(translate(self.current_config.y, world_bottom, world_top, 0, belief_height))
+        start_cell = (start_x, start_y)
+        goal_x = int(translate(self.goal_config.x, world_left, world_right, 0, belief_width))
+        goal_y = int(translate(self.goal_config.y, world_bottom, world_top, 0, belief_height))
+        goal_cell = (goal_x, goal_y)
+        # Incrementally add cell edges to graph. We do this so that we can take the highest belief
+        # path possible before having to add cells with lower belief levels.
+        for belief_level, cells in level_cells.items():
+            for cell in cells:
+                cell_x, cell_y = cell
+                for delta_x, delta_y in self.DIRECTIONS:
+                    neighbour_x, neighbour_y = cell_x + delta_x, cell_y + delta_y
+                    if neighbour_x in (-1, belief_width) or neighbour_y in (-1, belief_height):
+                        continue
+                    neighbour = (neighbour_x, neighbour_y)
+                    self.belief_graph.add_edge(neighbour, cell)
+            if nx.has_path(self.belief_graph, start_cell, goal_cell):
+                break
+        # Obtain cell path and determine where turning points occur.
+        cell_path = nx.dijkstra_path(self.belief_graph, start_cell, goal_cell)
+        previous_direction = None
+        previous_cell = cell_path[0]
+        turning_points = []
+        for cell in cell_path[1:]:
+            direction = (cell[0] - previous_cell[0], cell[1] - previous_cell[1])
+            # If directions changing, turning point.
+            if direction != previous_direction:
+                turning_points.append((previous_cell, direction))
+            previous_direction = direction
+            previous_cell = cell
+        print(turning_points)
+        # Sample at turning points and to graph in their connected path order.
+        previous_sample = self.current_config
+        total_count = 0
+        for (point_x, point_y), direction in turning_points:
+            # TODO(mitch): explain/remove add offset
+            add_offset = False
+            count = 0
+            while True:
+                sample_x = translate(point_x, 0, belief_width, world_left, world_right)
+                sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
+                offset_x = offset_y = 0.0
+                if add_offset:
+                    # TODO(mitch): finalise/fix/adjust these values
+                    offset_x = uniform(-1.2, 1.2)
+                    offset_y = uniform(-1.2, 1.2)
+                sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
+                print(total_count, count, previous_sample.position, sample_position)
+                sample_heading = Vector2D(*direction).angle
+                sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
+                interpolations = previous_sample.interpolate(sample, self.world)
+                if interpolations is not None:
+                    break
+                add_offset = True
+                count += 1
+            self.graph.add_edge(previous_sample, sample)
+            previous_sample = sample
+            total_count += 1
+        self.graph.add_edge(previous_sample, self.goal_config)
+
     def plan(self, is_training):
         """
         Perform a single iteration of planning.
         """
-        if len(self.graph.nodes) >= self.GRAPH_SIZE_LIMIT:
-            self.reset_graph()
-        self.sample()
         # Check if there's a path through configurations starting from current to goal.
         if not nx.has_path(self.graph, self.current_config, self.goal_config):
+            self.sample()
             return
         node_path = nx.shortest_path(self.graph, self.current_config, self.goal_config)
         execution_path = self.get_interpolated_path(node_path)
@@ -419,12 +484,15 @@ class Planner:
         Returns the interpolated node path.
         """
         interpolated_path = []
-        for i in range(1, len(node_path)):
-            previous, current = node_path[i - 1], node_path[i]
-            interpolation = previous.interpolate(current, self.world)
+        previous_node = node_path[0]
+        for node in node_path[1:]:
+            interpolation = previous_node.interpolate(node, self.world)
             if interpolation is None:
+                # Remove bad edge from graph.
+                self.graph.remove_edge(previous_node, node)
                 return None
             interpolated_path.extend(interpolation)
+            previous_node = node
         return iter(interpolated_path)
 
     def draw(self):
