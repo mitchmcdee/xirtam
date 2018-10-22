@@ -14,13 +14,12 @@ class FirstPersonCamera:
     A first person camera view of the scene.
     """
 
-    def __init__(self):
-        # OPTIONAL_TODO(mitch): abstract these magic number constants.
-        self.dx = 6.0
-        self.dy = 6.0
-        self.dz = 6.0
-        self.pitch = -40.0
-        self.yaw = 225.0
+    # OPTIONAL_TODO(mitch): abstract these magic number constants.
+    dx = 6.0
+    dy = 6.0
+    dz = 6.0
+    pitch = -40.0
+    yaw = 225.0
 
     def on_mouse_motion(self, x, y, dx, dy):
         """
