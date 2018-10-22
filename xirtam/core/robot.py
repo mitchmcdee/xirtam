@@ -40,6 +40,8 @@ class Robot:
             self.tibia_length = get_robot_row([float], "tibia length")
             self.foot_radius = get_robot_row([float], "foot radius")
             self.min_permeability = get_robot_row([float], "minimum magnetic permeability")
+            self.maximum_movement = get_robot_row([float], "maximum movement amount")
+            self.maximum_rotation = get_robot_row([float], "maximum rotation amount")
 
     def __hash__(self):
         """
@@ -187,13 +189,11 @@ class RobotConfig:
         current_vector = Vector2D.from_angle(self.heading)
         other_vector = Vector2D.from_angle(other.heading)
         rotation_angle = current_vector.directed_angle_between(other_vector)
-        # TODO(mitch): review this value
-        rotation_amount = math.atan2(self.robot.tibia_length / 4, self.robot.femur_length)
         configs = []  # type: List["RobotConfig"]
         last_config = self
         # Perform the minimum number of moves to get to the other config without exceeding
         # rotation limits. This should be at least two; the first move and last move.
-        num_moves = max(2, math.ceil(abs(rotation_angle / rotation_amount)))
+        num_moves = max(2, math.ceil(abs(rotation_angle / self.robot.maximum_rotation)))
         for angle in np.linspace(0, rotation_angle, num_moves):
             new_foot_vertices = [
                 footprint.centre.rotated_around_point(angle, self.position)
@@ -215,13 +215,11 @@ class RobotConfig:
         """
         movement_vector = Vector2D.from_points(self.position, other.position)
         movement_distance = movement_vector.length
-        # TODO(mitch): review this value
-        movement_amount = 2 * self.robot.tibia_length / 5
         configs = []  # type: List["RobotConfig"]
         last_config = self
         # Perform the minimum number of moves to get to the other config without exceeding
         # movement limits. This should be at least two: the first move and last move.
-        num_moves = max(2, math.ceil(movement_distance / movement_amount))
+        num_moves = max(2, math.ceil(movement_distance / self.robot.maximum_movement))
         for distance in np.linspace(0, movement_distance, num_moves):
             translation_vector = movement_vector.normalized * distance
             foot_placements = [
