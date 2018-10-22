@@ -184,11 +184,11 @@ def generate_motion(robot, world, world_cells):
             continue
         width = world.width
         height = world.height
-        start_cell_x = int((start_config.position.x / width) * num_cols)
-        start_cell_y = int((start_config.position.y / height) * num_rows)
+        start_cell_x = int((start_config.x / width) * num_cols)
+        start_cell_y = int((start_config.y / height) * num_rows)
         start_cell = start_cell_x, start_cell_y
-        goal_cell_x = int((goal_config.position.x / width) * num_cols)
-        goal_cell_y = int((goal_config.position.y / height) * num_rows)
+        goal_cell_x = int((goal_config.x / width) * num_cols)
+        goal_cell_y = int((goal_config.y / height) * num_rows)
         goal_cell = goal_cell_x, goal_cell_y
         if nx.has_path(graph, start_cell, goal_cell):
             break
@@ -202,7 +202,7 @@ def save_motion(motion_plan, output_path):
     with open(output_path, "w") as output_file:
         for config in motion_plan:
             # Config position
-            position_x, position_y = config.position.coords
+            position_x, position_y = config.x, config.y
             output_file.write(f"{position_x}, {position_y}\n")
             # Config heading (in degrees)
             output_file.write(f"{math.degrees(config.heading)}\n")
