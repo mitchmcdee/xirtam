@@ -203,10 +203,7 @@ class RobotConfig:
             )
             if not config.is_valid(world):
                 return None
-            feet_configs = last_config.interpolate_feet(config)
-            if feet_configs is None:
-                return None
-            configs.extend(feet_configs)
+            configs.extend(last_config.interpolate_feet(config))
             last_config = configs[-1]
         return configs
 
@@ -238,10 +235,7 @@ class RobotConfig:
             )
             if not config.is_valid(world):
                 return None
-            feet_configs = last_config.interpolate_feet(config)
-            if feet_configs is None:
-                return None
-            configs.extend(feet_configs)
+            configs.extend(last_config.interpolate_feet(config))
             last_config = configs[-1]
         return configs
 
@@ -262,10 +256,7 @@ class RobotConfig:
             return None
         configs.extend(angle_configs)
         # Add transition into goal pose.
-        feet_configs = configs[-1].interpolate_feet(goal)
-        if feet_configs is None:
-            return None
-        configs.extend(feet_configs)
+        configs.extend(configs[-1].interpolate_feet(goal))
         return configs
 
     def is_valid(self, world: World):
