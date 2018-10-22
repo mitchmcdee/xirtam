@@ -3,9 +3,11 @@ Module containing world information for the simulation environment.
 """
 import os
 import csv
-import logging
-import pyglet
-import hashlib
+from logging import getLogger
+from pyglet.graphics import Batch
+from pyglet.gl import GL_QUADS
+from hashlib import sha512
+from functools import partial
 from PIL import Image, ImageDraw
 from xirtam.utils.geometry.rectangle import Rectangle
 from xirtam.utils.utils import (
@@ -26,7 +28,7 @@ from xirtam.core.settings import (
     OUTPUT_INVALID_COLOUR,
 )
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = getLogger(__name__)
 EPSILON_Z = 1e-2
 
 
@@ -64,9 +66,9 @@ class World(Rectangle):
     # Collection of invalid foot placements in the world.
     invalid_placements = []
     # Region draw batch.
-    region_batch = pyglet.graphics.Batch()
+    region_batch = Batch()
     # Region draw batch.
-    placements_batch = pyglet.graphics.Batch()
+    placements_batch = Batch()
 
     def __init__(self, world_path):
         # Parse world file
@@ -93,25 +95,20 @@ class World(Rectangle):
         """
         self.valid_placements = []
         self.invalid_placements = []
-        self.region_batch = pyglet.graphics.Batch()
-        self.placements_batch = pyglet.graphics.Batch()
+        self.region_batch = Batch()
+        self.placements_batch = Batch()
         # Add all region to batch draw
         permeablities = [region.permeability for region in self.regions]
-        min_permeability = min(permeablities)
-        max_permeability = max(permeablities)
+        translate_permeability = partial(
+            translate,
+            left_min=min(permeablities),
+            left_max=max(permeablities),
+            right_min=MIN_PERMEABILITY_COLOUR,
+            right_max=MAX_PERMEABILITY_COLOUR,
+        )
         for region in self.regions:
-            colour = int(
-                translate(
-                    region.permeability,
-                    min_permeability,
-                    max_permeability,
-                    MIN_PERMEABILITY_COLOUR,
-                    MAX_PERMEABILITY_COLOUR,
-                )
-            )
-            self.region_batch.add(
-                4, pyglet.gl.GL_QUADS, None, ("v2f", region.vertices), ("c3B", (colour,) * 3 * 4)
-            )
+            colours = (int(translate_permeability(region.permeability)),) * 3 * 4
+            self.region_batch.add(4, GL_QUADS, None, ("v2f", region.vertices), ("c3B", colours))
 
     def handle_reset(self):
         """
@@ -195,7 +192,7 @@ class World(Rectangle):
         """
         image = self.get_placements_bmp(robot)
         # Save unique image if it doesn't already exist
-        image_hash = hashlib.sha512(image.tobytes()).hexdigest()
+        image_hash = sha512(image.tobytes()).hexdigest()
         placements_path = os.path.join(output_directory, f"{image_hash}.bmp")
         if os.path.exists(placements_path):
             return
