@@ -105,13 +105,13 @@ def translate(value, left_min, left_max, right_min, right_max):
     """
     Returns the value from within the left range translated into the right range.
     """
-    # Figure out how 'wide' each range is
+    # Figure out how 'wide' each range is.
     left_span = left_max - left_min
     right_span = right_max - right_min
-    # To prevent a divide by zero, just return right_max
+    # To prevent a divide by zero, just return right max.
     if left_span == 0:
         return right_max
-    # Convert the left range into a 0-1 range (float)
+    # Convert the left range into a 0-1 range (float).
     scaled_value = float(value - left_min) / float(left_span)
     # Convert the 0-1 range into a value in the right range.
     return right_min + (scaled_value * right_span)
