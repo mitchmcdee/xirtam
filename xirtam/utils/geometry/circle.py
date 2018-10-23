@@ -4,9 +4,7 @@ Module containing a two-dimensional circle class.
 from typing import Union, Any
 from xirtam.utils.utils import clamp
 from xirtam.utils.geometry.point2d import Point2D
-
-# Necessary to avoid circular import
-import xirtam.utils.geometry.rectangle
+from xirtam.utils.geometry.rectangle import *  # noqa: F403. Necessary to avoid circular import.
 
 
 class Circle:
@@ -45,7 +43,7 @@ class Circle:
         """
         if isinstance(other, Circle):
             return self.intersects_circle(other)
-        elif isinstance(other, xirtam.utils.geometry.rectangle.Rectangle):
+        elif isinstance(other, Rectangle):  # noqa: F405
             return self.intersects_rectangle(other)
         elif isinstance(other, Point2D):
             return self.intersects_point2d(other)
@@ -59,7 +57,7 @@ class Circle:
             self.y - circle.y
         ) ** 2
 
-    def intersects_rectangle(self, rectangle: "Rectangle") -> bool:
+    def intersects_rectangle(self, rectangle: Rectangle) -> bool:  # noqa: F405
         """
         Returns True if the other rectangle intersects the circle, else False.
         """

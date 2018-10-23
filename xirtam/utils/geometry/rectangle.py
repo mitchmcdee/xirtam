@@ -4,9 +4,7 @@ Module containing a two-dimensional rectangle class.
 from typing import Any
 from xirtam.utils.utils import clamp
 from xirtam.utils.geometry.point2d import Point2D
-
-# Necessary to avoid circular import
-import xirtam.utils.geometry.circle
+import xirtam.utils.geometry.circle  # Necessary to avoid circular import.
 
 
 class Rectangle:
@@ -59,7 +57,7 @@ class Rectangle:
             return self.contains_circle(other)
         raise NotImplementedError()
 
-    def contains_circle(self, circle: "Circle") -> bool:
+    def contains_circle(self, circle: "xirtam.utils.geometry.circle.Circle") -> bool:
         """
         Returns True if the rectangle completely contains the other circle, else False.
         """
@@ -80,7 +78,7 @@ class Rectangle:
             return self.intersects_point2d(other)
         raise NotImplementedError()
 
-    def intersects_circle(self, circle: "Circle") -> bool:
+    def intersects_circle(self, circle: "xirtam.utils.geometry.circle.Circle") -> bool:
         """
         Returns True if the other circle intersects the rectangle, else False.
         """

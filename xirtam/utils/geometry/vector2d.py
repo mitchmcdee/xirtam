@@ -109,14 +109,7 @@ class Vector2D:
         if self.zero:
             return self.__class__(0, 0)
         else:
-            return self.__class__.from_angle(self.angle + angle) * self.length
-
-    def rotated_around_point(self, angle: float, point: "Point2D"):
-        """
-        Rotates this vector counterclockwise by angle radians around the given point
-        and returns the result.
-        """
-        return (self - point).rotated(angle) + point
+            return self.__class__.from_angle(self.angle + angle) * self.length  # type: ignore
 
     def directed_angle_between(self, other: "Vector2D") -> float:
         """
@@ -137,13 +130,6 @@ class Vector2D:
         """
         assert isinstance(angle, (int, float))
         return cls(math.cos(angle), math.sin(angle))
-
-    @classmethod
-    def from_points(cls, point0: "Point2D", point1: "Point2D"):
-        """
-        Returns the vector from point0 to point1.
-        """
-        return point1 - point0
 
     def __iter__(self):
         """

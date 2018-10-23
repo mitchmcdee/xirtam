@@ -8,6 +8,7 @@ import csv
 import numpy as np
 from random import uniform
 from operator import gt, lt
+from typing import List  # noqa: F401
 from xirtam.utils.geometry.circle import Circle
 from xirtam.utils.geometry.vector2d import Vector2D
 from xirtam.utils.geometry.point2d import Point2D
@@ -114,13 +115,13 @@ class RobotConfig:
         self.body_vertices = self.get_body_vertices()
         self.leg_vertices = self.get_leg_vertices()
 
-    def __eq__(self, other: "RobotConfig"):
+    def __eq__(self, other) -> bool:
         """
         Returns True if the two configs are the same robot, at the same position, facing the
         same way with the same foot placements.
         """
         return (
-            isinstance(other, self.__class__)
+            isinstance(other, RobotConfig)
             and self.robot == other.robot
             and self.heading == other.heading
             and self.position == other.position
@@ -217,7 +218,7 @@ class RobotConfig:
         Returns the interpolated feet configs moving from the current config
         to the given other.
         """
-        movement_vector = Vector2D.from_points(self.position, other.position)
+        movement_vector = other.position - self.position
         movement_distance = movement_vector.length
         configs = []  # type: List["RobotConfig"]
         last_config = self
@@ -377,9 +378,9 @@ class RobotConfig:
         foot_vertex = self.footprints[leg_index].centre.coords + EPSILON_Z
         # Highlight first two feet of the robot.
         colour = self.alt_colour if leg_index in (0, Robot.NUM_LEGS - 1) else self.colour
-        return get_circle_call(
+        return get_circle_call(  # type: ignore
             *foot_vertex, self.robot.foot_radius, NUM_FOOT_POINTS, colour
-        )  # type: ignore
+        )
 
     def draw(self, batch):
         """

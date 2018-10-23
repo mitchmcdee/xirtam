@@ -9,17 +9,17 @@ import math
 import sys
 import networkx as nx
 import numpy as np
-import hashlib
 from enum import Enum
 from random import uniform
 from itertools import cycle
 from scipy.misc import imresize
-from skimage.io import imsave
 from functools import partial
+from typing import List  # noqa: F401
 from xirtam.utils.geometry.point2d import Point2D
 from xirtam.utils.geometry.vector2d import Vector2D
 from xirtam.core.robot import RobotConfig, Robot
 from xirtam.utils.utils import get_coerced_reader_row_helper, translate
+from xirtam.neural.timtamnet import TimTamNet
 from xirtam.core.settings import (
     START_COLOUR,
     GOAL_COLOUR,
@@ -33,7 +33,6 @@ from xirtam.core.settings import (
     FPS_JUMP,
     JIGGLE_JUMP,
 )
-from xirtam.neural.timtamnet import TimTamNet
 
 LOGGER = logging.getLogger(__name__)
 LEGS = range(Robot.NUM_LEGS)
@@ -123,7 +122,7 @@ class Planner:
     last_sampled_config = None
     # List of configurations since the last valid "checkpoint" configuration.
     # Note: A checkpoint configuration is one that occurs every NUM_LEGS + body configurations.
-    previous_configs = []
+    previous_configs = []  # type: List["RobotConfig"]
     # View of the current world belief, if any.
     belief_view = None
 
@@ -266,10 +265,6 @@ class Planner:
         placements = self.world.get_placements_bmp(self.robot)
         placements = np.array(placements).astype(float) / 255
         placements_size = placements.shape
-        # TODO(mitch): Remove this \/
-        placements_hash = hashlib.sha512(placements).hexdigest()
-        imsave(f"./testing/input/{placements_hash}.bmp", placements)
-        # TODO(mitch): Remove this /\
         # Reshape to 4D tensor (sample_size, image_width, image_height, num_channels).
         placements = np.reshape(placements, (1, *placements_size, 1))
         belief = self.model.predict(placements)
@@ -379,10 +374,6 @@ class Planner:
         """
         belief = self.get_current_belief()
         self.update_current_belief(belief)
-        # TODO(mitch): Remove this \/
-        image_hash = hashlib.sha512(belief).hexdigest()
-        imsave(f"./testing/output/{image_hash}.bmp", belief)
-        # TODO(mitch): Remove this /\
         # Separate cells by their levels.
         level_cells = {level: [] for level in range(BELIEF_LEVELS)}
         for cell, cell_data in self.belief_graph.nodes(data=True):

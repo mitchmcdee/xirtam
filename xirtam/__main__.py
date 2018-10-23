@@ -13,13 +13,16 @@ logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s - %(name)s - %(levelnam
 
 # Extract simulation arguments
 parsed_args = SimulationParser().parse_args()
+manager_args = {
+    "world_path": parsed_args.world_path,
+    "robot_path": parsed_args.robot_path,
+    "motion_path": parsed_args.motion_path,
+    "output_path": parsed_args.output_path,
+    "model_path": parsed_args.model_path,
+    "generate_case": parsed_args.generate_case,
+}
 # Run manager
-manager = TrainerManager if parsed_args.trainer else SimulatorManager
-manager(
-    world_path=parsed_args.world_path,
-    robot_path=parsed_args.robot_path,
-    motion_path=parsed_args.motion_path,
-    output_path=parsed_args.output_path,
-    model_path=parsed_args.model_path,
-    generate_case=parsed_args.generate_case,
-).run()
+if parsed_args.trainer:
+    TrainerManager(**manager_args).run()
+elif parsed_args.simulator:
+    SimulatorManager(**manager_args).run()

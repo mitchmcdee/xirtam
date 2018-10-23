@@ -1,5 +1,6 @@
 *.prof
 testing/
+.mypy_cache/
 .ipynb_checkpoints/
 __pycache__/
 .pytest_cache/

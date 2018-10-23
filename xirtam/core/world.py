@@ -8,7 +8,9 @@ from pyglet.graphics import Batch
 from pyglet.gl import GL_QUADS
 from hashlib import sha512
 from functools import partial
+from typing import List  # noqa: F401
 from PIL import Image, ImageDraw
+from xirtam.utils.geometry.circle import Circle  # noqa: F401
 from xirtam.utils.geometry.rectangle import Rectangle
 from xirtam.utils.utils import (
     get_coerced_reader_row_helper,
@@ -60,11 +62,11 @@ class World(Rectangle):
     """
 
     # Collection of region tiles in the world.
-    regions = []
+    regions = []  # type: List[WorldRegion]
     # Collection of valid foot placements in the world.
-    valid_placements = []
+    valid_placements = []  # type: List[Circle]
     # Collection of invalid foot placements in the world.
-    invalid_placements = []
+    invalid_placements = []  # type: List[Circle]
     # Region draw batch.
     region_batch = Batch()
     # Region draw batch.

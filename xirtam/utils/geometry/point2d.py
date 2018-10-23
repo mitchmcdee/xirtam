@@ -11,3 +11,10 @@ class Point2D(Vector2D):
 
     def __init__(self, x, y):
         super().__init__(x, y)
+
+    def rotated_around_point(self, angle: float, point: "Point2D"):
+        """
+        Rotates this point counterclockwise by angle radians around the given point
+        and returns the result.
+        """
+        return (self - point).rotated(angle) + point

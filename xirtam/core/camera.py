@@ -15,7 +15,7 @@ class FirstPersonCamera:
     A first person camera view of the scene.
     """
 
-    def __init__(self, world: World):
+    def __init__(self, world: World) -> None:
         # Look directly down onto world.
         self.dx = world.x + world.width / 2
         self.dy = world.y + world.height / 2
