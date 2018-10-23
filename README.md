@@ -2,7 +2,7 @@
 Xirtam is a 2.5D robot path planning simulator. It allows both the training and simulating of path planning. During the training phase, foot placement and world region images are generated and exported for later use to train TimTamNet.
 
 # TimTamNet
-TimTamNet is a fully convolutional neural network designed to learn the mapping between foot placements and the hidden environment map.
+TimTamNet is a fully convolutional neural network designed to learn the mapping between foot placements and the hidden environment map. Significant effort was put into designing this network to be extremely small (2.7k learnable parameters) for efficient storage and inference.
 
 # Requirements
 - Python3.6
