@@ -118,11 +118,11 @@ class World(Rectangle):
         """
         self.initialise()
 
-    def is_valid_config(self, config):
+    def is_valid_config(self, config, update=True):
         """
         Sample the world with the given robot configuration. If an invalid region was sampled,
-        add it to the collection of invalid regions. Returns True if the sample was valid, else
-        False.
+        add it to the collection of invalid regions if `update` is set to True. Returns True
+        if the sample was valid, else False.
         """
         is_valid_sample = True
         for footprint in config.footprints:
@@ -137,20 +137,21 @@ class World(Rectangle):
                 is_valid_placement = False
                 is_valid_sample = False
                 break
-            # Add to appropriate foot placements list.
-            if is_valid_placement:
-                self.valid_placements.append(footprint)
-            else:
-                self.invalid_placements.append(footprint)
-            self.placements_batch.add_indexed(
-                *get_circle_call(
-                    *footprint.centre.coords,
-                    EPSILON_Z,
-                    config.robot.foot_radius,
-                    NUM_FOOT_POINTS,
-                    VALID_COLOUR if is_valid_placement else INVALID_COLOUR,
+            if update:
+                # Add to appropriate foot placements list.
+                if is_valid_placement:
+                    self.valid_placements.append(footprint)
+                else:
+                    self.invalid_placements.append(footprint)
+                self.placements_batch.add_indexed(
+                    *get_circle_call(
+                        *footprint.centre.coords,
+                        EPSILON_Z,
+                        config.robot.foot_radius,
+                        NUM_FOOT_POINTS,
+                        VALID_COLOUR if is_valid_placement else INVALID_COLOUR,
+                    )
                 )
-            )
         return is_valid_sample
 
     def intersects_invalid(self, config):

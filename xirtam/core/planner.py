@@ -413,6 +413,8 @@ class Planner:
                 turning_points.append((previous_cell, direction))
             previous_direction = direction
             previous_cell = cell
+        # Start with clean slate.
+        self.reset_graph()
         # Sample at turning points and to graph in their connected path order.
         previous_sample = self.current_config
         for (point_x, point_y), direction in turning_points:

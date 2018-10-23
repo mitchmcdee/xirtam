@@ -7,6 +7,7 @@ import math
 import argparse
 import numpy as np
 import networkx as nx
+from xirtam.utils.utils import translate
 from xirtam.core.robot import Robot
 from xirtam.core.world import World
 from random import randrange, choice
@@ -175,21 +176,23 @@ def generate_motion(robot, world, world_cells):
     start_config = goal_config = None
     while True:
         start_config = robot.get_random_config(world)
-        if start_config.is_valid(world) and world.is_valid_config(start_config):
+        if start_config.is_valid(world) and world.is_valid_config(start_config, update=False):
             break
     # Get valid goal config and ensure it can be reached by the start.
     while True:
         goal_config = robot.get_random_config(world)
-        if not goal_config.is_valid(world) or not world.is_valid_config(goal_config):
+        if not goal_config.is_valid(world) or not world.is_valid_config(goal_config, update=False):
             continue
-        width = world.width
-        height = world.height
-        start_cell_x = int((start_config.x / width) * num_cols)
-        start_cell_y = int((start_config.y / height) * num_rows)
-        start_cell = start_cell_x, start_cell_y
-        goal_cell_x = int((goal_config.x / width) * num_cols)
-        goal_cell_y = int((goal_config.y / height) * num_rows)
-        goal_cell = goal_cell_x, goal_cell_y
+        # Check if we can interpolate (primitive check to see if cell is accessible via rotation).
+        if start_config.interpolate(goal_config, world) is None:
+            continue
+        world_left, world_top, world_right, world_bottom = world.bounds
+        start_x = int(translate(start_config.x, world_left, world_right, 0, num_cols))
+        start_y = int(translate(start_config.y, world_bottom, world_top, 0, num_rows))
+        start_cell = (start_x, start_y)
+        goal_x = int(translate(goal_config.x, world_left, world_right, 0, num_cols))
+        goal_y = int(translate(goal_config.y, world_bottom, world_top, 0, num_rows))
+        goal_cell = (goal_x, goal_y)
         if nx.has_path(graph, start_cell, goal_cell):
             break
     return start_config, goal_config
