@@ -156,8 +156,14 @@ class World(Rectangle):
         Returns True if the config intersects with an already discovered invalid region, else False.
         """
         for footprint in config.footprints:
-            for placement in self.invalid_placements:
-                if footprint.intersects(placement):
+            for invalid_placement in self.invalid_placements:
+                if not footprint.intersects(invalid_placement):
+                    continue
+                # Check if footprint is exactly on a previous valid placement. If not, its invalid.
+                for valid_placement in self.valid_placements:
+                    if footprint == valid_placement:
+                        break
+                else:
                     return True
         return False
 

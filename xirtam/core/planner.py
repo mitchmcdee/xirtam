@@ -423,34 +423,29 @@ class Planner:
                 turning_points.append((previous_cell, direction))
             previous_direction = direction
             previous_cell = cell
-        print(turning_points)
         # Sample at turning points and to graph in their connected path order.
         previous_sample = self.current_config
-        total_count = 0
         for (point_x, point_y), direction in turning_points:
             # TODO(mitch): explain/remove add offset
             add_offset = False
-            count = 0
             while True:
                 sample_x = translate(point_x, 0, belief_width, world_left, world_right)
                 sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
-                offset_x = offset_y = 0.0
+                offset_x = offset_y = offset_theta = 0.0
                 if add_offset:
                     # TODO(mitch): finalise/fix/adjust these values
                     offset_x = uniform(-1.2, 1.2)
                     offset_y = uniform(-1.2, 1.2)
+                    offset_theta = uniform(-math.pi, math.pi)
                 sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
-                print(total_count, count, previous_sample.position, sample_position)
                 sample_heading = Vector2D(*direction).angle
                 sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
                 interpolations = previous_sample.interpolate(sample, self.world)
-                if interpolations is not None:
+                if interpolations is not None and sample.is_valid(self.world):
                     break
                 add_offset = True
-                count += 1
             self.graph.add_edge(previous_sample, sample)
             previous_sample = sample
-            total_count += 1
         self.graph.add_edge(previous_sample, self.goal_config)
 
     def plan(self, is_training):
