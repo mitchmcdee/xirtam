@@ -82,7 +82,7 @@ class Planner:
 
     # Constants
     # Graph size limit before it is reset.
-    GRAPH_SIZE_LIMIT = 10
+    GRAPH_SIZE_LIMIT = 20
     # Image output limit before trainer is killed.
     OUTPUT_LIMIT = 50
     # Time before trainer is killed.
