@@ -123,8 +123,10 @@ def generate_world(num_rows, num_cols, invalid_percentage, num_genesis_cells):
             else:
                 invalid_cells.append(neighbour_cell)
     # Draw up grid and return. Reverse row order to make bottom left the origin.
-    return [[1 if (i, j) in invalid_cells else 0 for i in range(num_cols)]
-            for j in reversed(range(num_rows))]
+    return [
+        [1 if (i, j) in invalid_cells else 0 for i in range(num_cols)]
+        for j in reversed(range(num_rows))
+    ]
 
 
 def save_world(world_cells, output_path, cell_size, valid_perm, invalid_perm):

@@ -25,8 +25,6 @@ class Command(Enum):
     TOGGLE_VIEW = [pyglet.window.key.T]
     PLUS = [pyglet.window.key.EQUAL]
     MINUS = [pyglet.window.key.MINUS]
-    # SAVE = [pyglet.window.key.LCOMMAND, pyglet.window.key.S]
-    # OPEN = [pyglet.window.key.LCOMMAND, pyglet.window.key.O]
 
 
 # Logging
