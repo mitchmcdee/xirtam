@@ -122,8 +122,9 @@ def generate_world(num_rows, num_cols, invalid_percentage, num_genesis_cells):
             # no break, neighbour cell is a void cell.
             else:
                 invalid_cells.append(neighbour_cell)
-    # Draw up grid and return.
-    return [[1 if (i, j) in invalid_cells else 0 for i in range(num_cols)] for j in range(num_rows)]
+    # Draw up grid and return. Reverse row order to make bottom left the origin.
+    return [[1 if (i, j) in invalid_cells else 0 for i in range(num_cols)]
+            for j in reversed(range(num_rows))]
 
 
 def save_world(world_cells, output_path, cell_size, valid_perm, invalid_perm):
@@ -162,7 +163,6 @@ def generate_motion(robot, world, world_cells):
             cell = (x, y)
             if world_cells[y][x]:
                 continue
-            graph.add_node(cell)
             for delta_x, delta_y in DIRECTIONS:
                 neighbour = (x + delta_x, y + delta_y)
                 neighbour_x, neighbour_y = neighbour
@@ -170,20 +170,21 @@ def generate_motion(robot, world, world_cells):
                     continue
                 if world_cells[neighbour_y][neighbour_x]:
                     continue
-                graph.add_node(neighbour)
                 graph.add_edge(cell, neighbour)
     # Get valid start config.
     start_config = goal_config = None
     while True:
         start_config = robot.get_random_config(world)
+        # Check valid cell.
         if start_config.is_valid(world) and world.is_valid_config(start_config, update=False):
             break
     # Get valid goal config and ensure it can be reached by the start.
     while True:
         goal_config = robot.get_random_config(world)
+        # Check valid cell.
         if not goal_config.is_valid(world) or not world.is_valid_config(goal_config, update=False):
             continue
-        # Check if we can interpolate (primitive check to see if cell is accessible via rotation).
+        # Check we can interpolate to it (primitive check to see if accessible via rotation).
         if start_config.interpolate(goal_config, world) is None:
             continue
         world_left, world_top, world_right, world_bottom = world.bounds
@@ -194,7 +195,8 @@ def generate_motion(robot, world, world_cells):
         goal_y = int(translate(goal_config.y, world_bottom, world_top, 0, num_rows))
         goal_cell = (goal_x, goal_y)
         if nx.has_path(graph, start_cell, goal_cell):
-            break
+            if len(nx.shortest_path(graph, start_cell, goal_cell)) > 2:
+                break
     return start_config, goal_config
 
 

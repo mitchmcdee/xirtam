@@ -125,6 +125,8 @@ class Planner:
     previous_configs = []  # type: List["RobotConfig"]
     # View of the current world belief, if any.
     belief_view = None
+    # Number of samples made during this training run.
+    num_samples = 0
 
     def __init__(self, robot, world, motion_path, output_path, model_path):
         self.start_config, self.goal_config = self.get_motion_config(robot, motion_path)
@@ -167,6 +169,7 @@ class Planner:
         """
         self.fps_limit = EXECUTION_FPS_LIMIT / 2
         self.time_since_last_execute = 0
+        self.num_samples = 0
         self.is_paused = self.is_started = self.is_executing = self.is_complete = False
         self.current_config = self.start_config
         self.reset_graph()
@@ -308,6 +311,11 @@ class Planner:
         self.time_since_last_execute = 0
         # If we're at goal, completed.
         if self.current_config == self.goal_config:
+            # If path was straight to goal (i.e. no samples needed), short circuit training.
+            if is_training and self.num_samples == 0:
+                LOGGER.info("Pointless training sample, quitting!")
+                raise TrainingQualityException()
+            # Successfully got to goal.
             LOGGER.info("Got to goal!")
             self.is_complete = True
             if self.model is not None:
@@ -367,6 +375,7 @@ class Planner:
         for config in self.graph.nodes:
             new_config_edges.extend(self.get_config_edges(sample, config))
         self.graph.add_edges_from(new_config_edges)
+        self.num_samples += 1
 
     def get_model_sample(self):
         """
@@ -439,6 +448,7 @@ class Planner:
             previous_sample = sample
         # Add final edge to goal.
         self.graph.add_edge(previous_sample, self.goal_config)
+        self.num_samples += 1
 
     def plan(self, is_training):
         """
@@ -452,10 +462,6 @@ class Planner:
         execution_path = self.get_interpolated_path(node_path)
         if execution_path is None:
             return
-        # If training and the path is just from start to goal, short circuit training.
-        if is_training and self.current_config == self.start_config and len(node_path) == 2:
-            LOGGER.info("Pointless training sample, quitting!")
-            raise TrainingQualityException()
         LOGGER.info("Found a path to the goal! Executing now.")
         self.execution_path = execution_path
         self.is_executing = True
