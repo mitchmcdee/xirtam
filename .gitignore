@@ -6,6 +6,3 @@ __pycache__/
 .pytest_cache/
 out/
 .DS_Store
-*.world
-*.robot
-*.motion
