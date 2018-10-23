@@ -9,21 +9,12 @@ TimTamNet is a fully convolutional neural network designed to learn the mapping 
 - `pip3 install -r requirements.txt`
 
 # Running
-For usage help:
-- `python3 -m xirtam --help`
-To run a visual simulation:
-- `python3 -m xirtam -s`
-To run a training simulation:
-- `python3 -m xirtam -t`
-To generate a random map:
-- `python3 -m xirtam -s -g`
-To specify a specific robot file:
-- `python3 -m xirtam -s -r example.robot`
-To specify a specific world/motion file:
-- `python3 -m xirtam -s -w example.world -m example.motion`
-To utilise a trained TimTamNet model:
-- `python3 -m xirtam -s -n model.hdf5`
-To train a TimTamNet model:
-- `python3 xirtam/neural/train.py -r ./path/to/images/`
-To debug and view the results of a TimTamNet model:
-- `jupyter notebook xirtam/neural/debug.ipynb`
+- For usage help: `python3 -m xirtam --help`
+- To run a visual simulation: `python3 -m xirtam -s`
+- To run a training simulation: `python3 -m xirtam -t`
+- To generate a random map: `python3 -m xirtam -s -g`
+- To specify a specific robot file: `python3 -m xirtam -s -r example.robot`
+- To specify a specific world/motion file: `python3 -m xirtam -s -w example.world -m example.motion`
+- To utilise a trained TimTamNet model: `python3 -m xirtam -s -n model.hdf5`
+- To train a TimTamNet model: `python3 xirtam/neural/train.py -r ./path/to/images/`
+- To debug and view the results of a TimTamNet model: `jupyter notebook xirtam/neural/debug.ipynb`
