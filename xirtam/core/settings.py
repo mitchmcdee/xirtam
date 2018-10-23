@@ -33,7 +33,7 @@ class Command(Enum):
 LOG_LEVEL = "INFO"
 
 # Camera
-MOVEMENT_SPEED = 3
+MOVEMENT_SPEED = 6
 MOUSE_SENSITIVITY = 0.1
 INVERTED_Y = True
 
