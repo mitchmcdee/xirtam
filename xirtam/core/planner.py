@@ -31,6 +31,7 @@ from xirtam.core.settings import (
     BELIEF_DIMENSIONS,
     BELIEF_LEVELS,
     FPS_JUMP,
+    JIGGLE_JUMP,
 )
 from xirtam.neural.timtamnet import TimTamNet
 
@@ -426,24 +427,22 @@ class Planner:
         # Sample at turning points and to graph in their connected path order.
         previous_sample = self.current_config
         for (point_x, point_y), direction in turning_points:
-            # TODO(mitch): explain/remove add offset
-            add_offset = False
+            # Add an offset value if the original placement failed.
+            jiggle_amount = 0.0
             while True:
                 sample_x = translate(point_x, 0, belief_width, world_left, world_right)
                 sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
-                offset_x = offset_y = offset_theta = 0.0
-                if add_offset:
-                    # TODO(mitch): finalise/fix/adjust these values
-                    offset_x = uniform(-1.2, 1.2)
-                    offset_y = uniform(-1.2, 1.2)
-                    offset_theta = uniform(-math.pi, math.pi)
+                offset_x = uniform(-jiggle_amount, jiggle_amount)
+                offset_y = uniform(-jiggle_amount, jiggle_amount)
+                offset_theta = uniform(-jiggle_amount, jiggle_amount)
                 sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
                 sample_heading = Vector2D(*direction).angle
                 sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
                 interpolations = previous_sample.interpolate(sample, self.world)
                 if interpolations is not None and sample.is_valid(self.world):
                     break
-                add_offset = True
+                jiggle_amount += JIGGLE_JUMP
+                print('jiggle:', jiggle_amount)
             self.graph.add_edge(previous_sample, sample)
             previous_sample = sample
         self.graph.add_edge(previous_sample, self.goal_config)
