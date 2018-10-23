@@ -45,3 +45,6 @@ To debug and view the results of a TimTamNet model:
 ```bash
 jupyter notebook xirtam/neural/debug.ipynb
 ```
+
+# Thesis
+Path Planning in Partially Observable Environments using Fully Convolutional Networks (TODO(mitch): add link to thesis pdf here)
