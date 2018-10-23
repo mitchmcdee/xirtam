@@ -376,16 +376,14 @@ class Planner:
     def get_model_sample(self):
         """
         Gets a random sample from the belief model.
-        # TODO(mitch): Give this a massive clean up and abstraction and comments.
         """
-        self.reset_graph()
         belief = self.get_current_belief()
         self.update_current_belief(belief)
         # TODO(mitch): Remove this \/
         image_hash = hashlib.sha512(belief).hexdigest()
         imsave(f"./testing/output/{image_hash}.bmp", belief)
         # TODO(mitch): Remove this /\
-        # Build graph edges.
+        # Separate cells by their levels.
         level_cells = {level: [] for level in range(BELIEF_LEVELS)}
         for cell, cell_data in self.belief_graph.nodes(data=True):
             belief_level = cell_data["weight"]
@@ -400,7 +398,7 @@ class Planner:
         goal_y = int(translate(self.goal_config.y, world_bottom, world_top, 0, belief_height))
         goal_cell = (goal_x, goal_y)
         # Incrementally add cell edges to graph. We do this so that we can take the highest belief
-        # path possible before having to add cells with lower belief levels.
+        # path possible before attempting to navigate through "walls" of the belief model.
         for belief_level, cells in level_cells.items():
             for cell in cells:
                 cell_x, cell_y = cell
@@ -427,7 +425,9 @@ class Planner:
         # Sample at turning points and to graph in their connected path order.
         previous_sample = self.current_config
         for (point_x, point_y), direction in turning_points:
-            # Add an offset value if the original placement failed.
+            # Try to sample at the turning point. For every fail, increase the amount of random
+            # jiggle to try and find a valid position. This is to avoid trying to place at
+            # invalid positions and being stuck in a loop.
             jiggle_amount = 0.0
             while True:
                 sample_x = translate(point_x, 0, belief_width, world_left, world_right)
@@ -436,15 +436,15 @@ class Planner:
                 offset_y = uniform(-jiggle_amount, jiggle_amount)
                 offset_theta = uniform(-jiggle_amount, jiggle_amount)
                 sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
-                sample_heading = Vector2D(*direction).angle
+                sample_heading = Vector2D(*direction).angle + offset_theta
                 sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
                 interpolations = previous_sample.interpolate(sample, self.world)
                 if interpolations is not None and sample.is_valid(self.world):
                     break
                 jiggle_amount += JIGGLE_JUMP
-                print('jiggle:', jiggle_amount)
             self.graph.add_edge(previous_sample, sample)
             previous_sample = sample
+        # Add final edge to goal.
         self.graph.add_edge(previous_sample, self.goal_config)
 
     def plan(self, is_training):

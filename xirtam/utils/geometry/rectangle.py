@@ -51,6 +51,25 @@ class Rectangle:
         """
         return hash((self.x, self.y, self.width, self.height))
 
+    def contains(self, other: Any) -> bool:
+        """
+        Returns True if the rectangle completely contains the other object, else False.
+        """
+        if isinstance(other, xirtam.utils.geometry.circle.Circle):
+            return self.contains_circle(other)
+        raise NotImplementedError()
+
+    def contains_circle(self, circle: "Circle") -> bool:
+        """
+        Returns True if the rectangle completely contains the other circle, else False.
+        """
+        return (
+            self.left <= circle.left
+            and circle.right <= self.right
+            and self.bottom <= circle.bottom
+            and circle.top <= self.top
+        )
+
     def intersects(self, other: Any) -> bool:
         """
         Returns True if the other object intersects the rectangle, else False.

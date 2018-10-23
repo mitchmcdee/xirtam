@@ -271,7 +271,7 @@ class RobotConfig:
             return False
         # Check feet are within world bounds.
         for footprint in self.footprints:
-            if not world.intersects(footprint):
+            if not world.contains(footprint):
                 return False
         # Rotate feet back to robot's "north"-heading.
         footprints = [
