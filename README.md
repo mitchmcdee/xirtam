@@ -48,4 +48,3 @@ jupyter notebook xirtam/neural/debug.ipynb
 
 # Thesis
 Motion Planning in Partially Observable Environments using Fully Convolutional Networks (TODO(mitch): add link to thesis pdf here)
-![Thesis Poster](poster.png)
