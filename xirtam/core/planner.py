@@ -94,13 +94,15 @@ class Planner:
     # Variables
     # Graph containing potentially connected configuration samples.
     graph = nx.DiGraph()
-    # Graph containing potentially connected belief regions.
-    belief_graph = nx.DiGraph()
+    # Graph containing potentially connected belief regions from the neural model.
+    model_belief_graph = nx.DiGraph()
+    # Graph containing potentially connected belief regions from the occupancy map.
+    occupancy_belief_graph = nx.DiGraph()
     # Amount of time in seconds since the planner has started.
     run_time = 0
     # Number of images the planner has output.
     output_count = 0
-    # Belief model for the robot.
+    # Neural model for the robot.
     model = None
     # Execution fps limit.
     fps_limit = EXECUTION_FPS_LIMIT / 2
@@ -241,7 +243,7 @@ class Planner:
         """
         Updates the current belief of the underlying environment.
         """
-        self.belief_graph.clear()
+        self.model_belief_graph.clear()
         if belief is None:
             belief = self.get_current_belief()
         self.set_belief_view(belief)
@@ -259,7 +261,7 @@ class Planner:
         # Set belief weights.
         for y, row in enumerate(belief):
             for x, belief_level in enumerate(row):
-                self.belief_graph.add_node((x, y), weight=belief_level)
+                self.model_belief_graph.add_node((x, y), weight=belief_level)
 
     def get_current_belief(self):
         """
@@ -381,11 +383,13 @@ class Planner:
         """
         Gets a random sample from the belief model.
         """
+        # Start with clean slate.
+        self.reset_graph()
         belief = self.get_current_belief()
         self.update_current_belief(belief)
         # Separate cells by their levels.
         level_cells = {level: [] for level in range(BELIEF_LEVELS)}
-        for cell, cell_data in self.belief_graph.nodes(data=True):
+        for cell, cell_data in self.model_belief_graph.nodes(data=True):
             belief_level = cell_data["weight"]
             level_cells[belief_level].append(cell)
         # Determine current and goal cells in belief graph.
@@ -407,11 +411,11 @@ class Planner:
                     if neighbour_x in (-1, belief_width) or neighbour_y in (-1, belief_height):
                         continue
                     neighbour = (neighbour_x, neighbour_y)
-                    self.belief_graph.add_edge(neighbour, cell)
-            if nx.has_path(self.belief_graph, start_cell, goal_cell):
+                    self.model_belief_graph.add_edge(neighbour, cell)
+            if nx.has_path(self.model_belief_graph, start_cell, goal_cell):
                 break
         # Obtain cell path and determine where turning points occur.
-        cell_path = nx.dijkstra_path(self.belief_graph, start_cell, goal_cell)
+        cell_path = nx.dijkstra_path(self.model_belief_graph, start_cell, goal_cell)
         previous_direction = None
         previous_cell = cell_path[0]
         turning_points = []
@@ -422,8 +426,6 @@ class Planner:
                 turning_points.append((previous_cell, direction))
             previous_direction = direction
             previous_cell = cell
-        # Start with clean slate.
-        self.reset_graph()
         # Sample at turning points and to graph in their connected path order.
         previous_sample = self.current_config
         for (point_x, point_y), direction in turning_points:
