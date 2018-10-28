@@ -18,7 +18,7 @@ from xirtam.utils.utils import (
     get_coerced_reader_row_helper,
     get_intersection_between_two_circles,
 )
-from xirtam.core.settings import NUM_FOOT_POINTS, PLANNING_COLOUR, BODY_ALT_MODIFIER
+from xirtam.core.settings import NUM_FOOT_POINTS, EXECUTING_COLOUR, BODY_ALT_MODIFIER
 from xirtam.core.world import World
 
 LOGGER = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ class Robot:
             angle = -(foot_index * 2 + 1) * (math.pi / 4)
             offset = Point2D.from_angle(angle + heading) * self.femur_length
             foot_vertices.append(position + offset)
-        return RobotConfig(self, position, heading, foot_vertices, PLANNING_COLOUR)
+        return RobotConfig(self, position, heading, foot_vertices, EXECUTING_COLOUR)
 
 
 class RobotConfig:

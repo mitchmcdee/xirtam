@@ -24,14 +24,14 @@ from xirtam.core.settings import (
     START_COLOUR,
     GOAL_COLOUR,
     EXECUTING_COLOUR,
-    PLANNING_COLOUR,
     ROBOT_LINE_WIDTH,
     EXECUTION_FPS_LIMIT,
     OUTPUT_BMP_DIMENSIONS,
     BELIEF_DIMENSIONS,
     BELIEF_LEVELS,
     FPS_JUMP,
-    JIGGLE_JUMP,
+    JIGGLE_FACTOR,
+    SAMPLE_LIMIT,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class ViewState(Enum):
 
 class Planner:
     """
-    A robot path planner.
+    A robot path planner that executes paths influenced by a core belief of the environment.
     """
 
     # Constants
@@ -92,18 +92,10 @@ class Planner:
     DIRECTIONS = ((-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1))
 
     # Variables
-    # Graph containing potentially connected configuration samples.
-    graph = nx.DiGraph()
-    # Graph containing potentially connected belief regions from the neural model.
-    model_belief_graph = nx.DiGraph()
-    # Graph containing potentially connected belief regions from the occupancy map.
-    occupancy_belief_graph = nx.DiGraph()
     # Amount of time in seconds since the planner has started.
     run_time = 0
     # Number of images the planner has output.
     output_count = 0
-    # Neural model for the robot.
-    model = None
     # Execution fps limit.
     fps_limit = EXECUTION_FPS_LIMIT / 2
     # Amount of time in seconds since the last execution move.
@@ -120,28 +112,29 @@ class Planner:
     current_config = None
     # Motion plan start configuration.
     start_config = None
-    # Last configuration sampled.
-    last_sampled_config = None
     # List of configurations since the last valid "checkpoint" configuration.
     # Note: A checkpoint configuration is one that occurs every NUM_LEGS + body configurations.
     previous_configs = []  # type: List["RobotConfig"]
     # View of the current world belief, if any.
     belief_view = None
-    # Number of samples made during this training run.
-    num_samples = 0
+    # Graph containing potentially connected belief regions
+    belief_graph = nx.DiGraph()
+    # Number of path execution attempts made during this training run.
+    num_attempts = 0
+    # Neural belief model.
+    model = None
 
     def __init__(self, robot, world, motion_path, output_path, model_path):
         self.start_config, self.goal_config = self.get_motion_config(robot, motion_path)
         self.robot = robot
         self.world = world
-        self.model = None
-        # If we have a model, get samples from the model. Else, get random configs.
+        # If we have a model path, use a neural belief model, else use an occupancy belief map.
         if model_path is None:
-            self.sample = self.get_random_sample
+            self.get_belief = self.get_occupancy_belief
         else:
             self.model = TimTamNet(input_shape=(*OUTPUT_BMP_DIMENSIONS, 1))
             self.model.load_weights(model_path)
-            self.sample = self.get_model_sample
+            self.get_belief = self.get_neural_belief
         output_directory = f"robot-{self.robot.__hash__()}/world-{self.world.__hash__()}"
         self.output_path = os.path.join(output_path, output_directory)
         self.visibility_iterator = cycle(ViewState)
@@ -171,25 +164,12 @@ class Planner:
         """
         self.fps_limit = EXECUTION_FPS_LIMIT / 2
         self.time_since_last_execute = 0
-        self.num_samples = 0
+        self.num_attempts = 0
         self.is_paused = self.is_started = self.is_executing = self.is_complete = False
         self.current_config = self.start_config
-        self.reset_graph()
         self.previous_configs = []
         self.belief_view = None
-        self.last_sampled_config = None
-        if self.model is not None:
-            self.update_current_belief()
-
-    def reset_graph(self):
-        """
-        Resets the planner graph to its default state.
-        """
-        self.graph.clear()
-        self.graph.add_node(self.current_config)
-        self.graph.add_node(self.goal_config)
-        # Attempt to add direct path from current to goal.
-        self.graph.add_edges_from(self.get_config_edges(self.current_config, self.goal_config))
+        self.update_current_belief()
 
     def handle_toggle_view(self):
         """
@@ -231,6 +211,26 @@ class Planner:
         if self.is_started:
             self.is_paused = not self.is_paused
 
+    def handle_complete(self, is_training):
+        """
+        Handle the robot completing a path to the goal.
+        """
+        # If path was straight to goal (i.e. no planning attempts needed), short circuit training.
+        if is_training and self.num_attempts == 0:
+            LOGGER.info("Pointless training sample, quitting!")
+            raise TrainingQualityException()
+        LOGGER.info("Got to goal!")
+        self.is_complete = True
+        self.update_current_belief()
+        if is_training:
+            # Save final placements.
+            self.world.save_placements_bmp(self.robot, self.output_path)
+            self.output_count += 1
+            # Restart training immediately.
+            self.world.handle_reset()
+            self.handle_reset()
+            self.handle_start()
+
     def set_belief_view(self, belief):
         """
         Sets the view of the current world belief.
@@ -243,12 +243,11 @@ class Planner:
         """
         Updates the current belief of the underlying environment.
         """
-        self.model_belief_graph.clear()
+        self.belief_graph.clear()
         if belief is None:
-            belief = self.get_current_belief()
-        self.set_belief_view(belief)
+            belief = self.get_belief()
         # Down sample image.
-        belief = imresize(belief, BELIEF_DIMENSIONS, interp="nearest").flatten()
+        belief = imresize(belief, BELIEF_DIMENSIONS, interp="bicubic").flatten()
         # Reduce colour depth.
         reduce_depth = partial(
             translate,
@@ -258,14 +257,30 @@ class Planner:
             right_max=BELIEF_LEVELS - 1,
         )
         belief = np.array(list(map(reduce_depth, belief))).astype(int).reshape(BELIEF_DIMENSIONS)
+        increase_depth = partial(
+            translate, left_min=np.min(belief), left_max=np.max(belief), right_min=0, right_max=255
+        )
+        belief_view = (
+            np.array(list(map(increase_depth, belief.flatten())))
+            .astype(int)
+            .reshape(BELIEF_DIMENSIONS)
+        )
+        # TODO(mitch): double check this is where you want this. defs bicubic? either way, clean this up.
+        self.set_belief_view(belief_view)
         # Set belief weights.
         for y, row in enumerate(belief):
             for x, belief_level in enumerate(row):
-                self.model_belief_graph.add_node((x, y), weight=belief_level)
+                self.belief_graph.add_node((x, y), weight=belief_level)
 
-    def get_current_belief(self):
+    def get_occupancy_belief(self):
         """
-        Gets the current belief of the environment from the model.
+        Gets the current belief of the environment from the occupancy map.
+        """
+        return np.array(self.world.get_placements_bmp(self.robot))
+
+    def get_neural_belief(self):
+        """
+        Gets the current belief of the environment from the neural model.
         """
         placements = self.world.get_placements_bmp(self.robot)
         placements = np.array(placements).astype(float) / 255
@@ -286,47 +301,32 @@ class Planner:
         if is_training and self.output_count >= self.OUTPUT_LIMIT:
             LOGGER.info("Reached output limit, quitting!")
             raise OutputLimitException()
-        if self.is_complete:
-            if not is_training:
-                return
-            # Restart training.
-            self.world.handle_reset()
-            self.handle_reset()
-            self.handle_start()
-        if self.is_paused:
-            return
-        if not self.is_started:
+        if self.is_complete or self.is_paused or not self.is_started:
             return
         if self.is_executing:
             self.execute(delta_time, is_training)
         else:
-            self.plan(is_training)
+            self.plan()
 
     def execute(self, delta_time, is_training):
         """
         Perform a single iteration of execution.
         """
         self.time_since_last_execute += delta_time
+
         # If we're not training and execution time hasn't been reached, return for now.
         if not is_training and self.time_since_last_execute < (1 / self.fps_limit):
             return
         self.time_since_last_execute = 0
+
         # If we're at goal, completed.
         if self.current_config == self.goal_config:
-            # If path was straight to goal (i.e. no samples needed), short circuit training.
-            if is_training and self.num_samples == 0:
-                LOGGER.info("Pointless training sample, quitting!")
-                raise TrainingQualityException()
-            # Successfully got to goal.
-            LOGGER.info("Got to goal!")
-            self.is_complete = True
-            if self.model is not None:
-                self.update_current_belief()
-            if is_training:
-                self.world.save_placements_bmp(self.robot, self.output_path)
-                self.output_count += 1
+            self.handle_complete(is_training)
             return
-        # Sample the current config in the world for validity (i.e. check footpads adhere).
+
+        # TODO(mitch): document total distance travelled
+
+        # Sample the current config in the world for validity (i.e. check all feet can adhere).
         if self.world.is_valid_config(self.current_config):
             # Only keep past Robot.NUM_LEGS + BODY configurations for checkpointing.
             if len(self.previous_configs) == Robot.NUM_LEGS + 1:
@@ -338,16 +338,19 @@ class Planner:
             if is_training:
                 self.world.save_placements_bmp(self.robot, self.output_path)
                 self.output_count += 1
+
         # Get next execution step.
         next_config = next(self.execution_path, None)
+
         # If we've exhausted the execution path, start planning again.
         if next_config is None:
             self.previous_configs.clear()
             self.is_executing = False
+            self.num_attempts += 1
             return
+
         # Take next step.
         self.current_config = next_config
-        self.graph.add_node(self.current_config)
 
     def get_config_edges(self, config_a, config_b):
         """
@@ -362,36 +365,16 @@ class Planner:
             config_edges.append((config_b, config_a))
         return config_edges
 
-    def get_random_sample(self):
+    def get_belief_path(self):
         """
-        Samples new random config and attempts to add it to the graph.
+        Returns a path to the goal config as suggested from the belief of the underlying environment.
         """
-        if len(self.graph.nodes) >= self.GRAPH_SIZE_LIMIT:
-            self.reset_graph()
-        sample = self.robot.get_random_config(self.world)
-        if not sample.is_valid(self.world):
-            return
-        self.last_sampled_config = sample
-        new_config_edges = []
-        # Attempt to add sample to nodes in graph.
-        for config in self.graph.nodes:
-            new_config_edges.extend(self.get_config_edges(sample, config))
-        self.graph.add_edges_from(new_config_edges)
-        self.num_samples += 1
-
-    def get_model_sample(self):
-        """
-        Gets a random sample from the belief model.
-        """
-        # Start with clean slate.
-        self.reset_graph()
-        belief = self.get_current_belief()
-        self.update_current_belief(belief)
         # Separate cells by their levels.
         level_cells = {level: [] for level in range(BELIEF_LEVELS)}
-        for cell, cell_data in self.model_belief_graph.nodes(data=True):
+        for cell, cell_data in self.belief_graph.nodes(data=True):
             belief_level = cell_data["weight"]
             level_cells[belief_level].append(cell)
+
         # Determine current and goal cells in belief graph.
         belief_width, belief_height = BELIEF_DIMENSIONS
         world_left, world_top, world_right, world_bottom = self.world.bounds
@@ -401,6 +384,7 @@ class Planner:
         goal_x = int(translate(self.goal_config.x, world_left, world_right, 0, belief_width))
         goal_y = int(translate(self.goal_config.y, world_bottom, world_top, 0, belief_height))
         goal_cell = (goal_x, goal_y)
+
         # Incrementally add cell edges to graph. We do this so that we can take the highest belief
         # path possible before attempting to navigate through "walls" of the belief model.
         for belief_level, cells in level_cells.items():
@@ -411,61 +395,87 @@ class Planner:
                     if neighbour_x in (-1, belief_width) or neighbour_y in (-1, belief_height):
                         continue
                     neighbour = (neighbour_x, neighbour_y)
-                    self.model_belief_graph.add_edge(neighbour, cell)
-            if nx.has_path(self.model_belief_graph, start_cell, goal_cell):
+                    self.belief_graph.add_edge(neighbour, cell)
+            if nx.has_path(self.belief_graph, start_cell, goal_cell):
                 break
+
+        def get_euclidean_distance(a, b):
+            """
+            Returns the euclidean distance between cells a and b.
+            """
+            return Point2D(*a).distance_to(Point2D(*b))
+
         # Obtain cell path and determine where turning points occur.
-        cell_path = nx.dijkstra_path(self.model_belief_graph, start_cell, goal_cell)
-        previous_direction = None
-        previous_cell = cell_path[0]
+        cell_path = nx.astar_path(self.belief_graph, start_cell, goal_cell, get_euclidean_distance)
+        previous_direction, previous_cell = None, cell_path[0]
         turning_points = []
         for cell in cell_path[1:]:
             direction = (cell[0] - previous_cell[0], cell[1] - previous_cell[1])
-            # If directions changing, turning point.
+            # If directions change, we've found a turning point.
             if direction != previous_direction:
                 turning_points.append((previous_cell, direction))
-            previous_direction = direction
-            previous_cell = cell
-        # Sample at turning points and to graph in their connected path order.
-        previous_sample = self.current_config
-        for (point_x, point_y), direction in turning_points:
-            # Try to sample at the turning point. For every fail, increase the amount of random
-            # jiggle to try and find a valid position. This is to avoid trying to place at
-            # invalid positions and being stuck in a loop.
-            jiggle_amount = 0.0
-            while True:
-                sample_x = translate(point_x, 0, belief_width, world_left, world_right)
-                sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
-                offset_x = uniform(-jiggle_amount, jiggle_amount)
-                offset_y = uniform(-jiggle_amount, jiggle_amount)
-                offset_theta = uniform(-jiggle_amount, jiggle_amount)
-                sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
-                sample_heading = Vector2D(*direction).angle + offset_theta
-                sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
-                interpolations = previous_sample.interpolate(sample, self.world)
-                if interpolations is not None and sample.is_valid(self.world):
-                    break
-                jiggle_amount += JIGGLE_JUMP
-            self.graph.add_edge(previous_sample, sample)
-            previous_sample = sample
-        # Add final edge to goal.
-        self.graph.add_edge(previous_sample, self.goal_config)
-        self.num_samples += 1
+            previous_direction, previous_cell = direction, cell
+        turning_points.append((previous_cell, previous_direction))
 
-    def plan(self, is_training):
+        JIGGLE_LIMIT = max(self.world.width, self.world.height)
+        JIGGLE_JUMP = JIGGLE_LIMIT / JIGGLE_FACTOR
+        while True:
+            # Sample at turning points and add their connected interpolations to path.
+            previous_sample = self.current_config
+            interpolated_path = []
+            exceeded_sample_limit = False
+            for i, ((point_x, point_y), direction) in enumerate(turning_points):
+                # Try to sample at the turning point. For every fail, increase the amount of random
+                # jiggle to try and find a valid position. This is to avoid trying to place at
+                # invalid positions and being stuck in a loop. Don't jiggle more than the world.
+                jiggle = 0.0
+                for sample_attempt in range(SAMPLE_LIMIT):
+                    # print(i, jiggle)
+                    jiggle = min(jiggle + JIGGLE_JUMP, JIGGLE_LIMIT)
+                    sample_x = translate(point_x, 0, belief_width, world_left, world_right)
+                    sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
+                    offset_x = uniform(-jiggle, jiggle)
+                    offset_y = uniform(-jiggle, jiggle)
+                    offset_theta = uniform(-jiggle, jiggle)
+                    sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
+                    sample_heading = offset_theta
+                    if direction is not None:
+                        sample_heading = Vector2D(*direction).angle + offset_theta
+                    sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
+                    interpolations = previous_sample.interpolate(sample, self.world)
+                    # If invalid sample or failed to interpolate, continue sampling.
+                    if interpolations is None or not sample.is_valid(self.world):
+                        continue
+                    # If we're the final turning point, ensure we can also interpolate to goal.
+                    if i == len(turning_points) - 1:
+                        goal_interpolations = sample.interpolate(self.goal_config, self.world)
+                        if goal_interpolations is None:
+                            continue
+                    # Valid sample, break.
+                    break
+                # Exceeded sample limit.
+                else:
+                    LOGGER.info('Got stuck during belief sampling, trying again!')
+                    exceeded_sample_limit = True
+                    break
+                interpolated_path.extend(interpolations)
+                previous_sample = sample
+            if exceeded_sample_limit:
+                continue
+            interpolated_path.extend(goal_interpolations)
+            break
+        return iter(interpolated_path)
+
+    def plan(self):
         """
         Perform a single iteration of planning.
         """
-        # Check if there's a path through configurations starting from current to goal.
-        if not nx.has_path(self.graph, self.current_config, self.goal_config):
-            self.sample()
-            return
-        node_path = nx.shortest_path(self.graph, self.current_config, self.goal_config)
-        execution_path = self.get_interpolated_path(node_path)
-        if execution_path is None:
-            return
-        LOGGER.info("Found a path to the goal! Executing now.")
-        self.execution_path = execution_path
+        self.update_current_belief()
+        # If first attempt, try to navigate straight to goal. Else, use current belief.
+        if self.num_attempts == 0:
+            self.execution_path = self.get_direct_path_to_goal()
+        else:
+            self.execution_path = self.get_belief_path()
         self.is_executing = True
 
     def get_path_to_previous(self):
@@ -474,21 +484,11 @@ class Planner:
         """
         return reversed([c for c in self.previous_configs])
 
-    def get_interpolated_path(self, node_path):
+    def get_direct_path_to_goal(self):
         """
-        Returns the interpolated node path.
+        Returns the interpolated path to the previous valid config.
         """
-        interpolated_path = []
-        previous_node = node_path[0]
-        for node in node_path[1:]:
-            interpolation = previous_node.interpolate(node, self.world)
-            if interpolation is None:
-                # Remove bad edge from graph.
-                self.graph.remove_edge(previous_node, node)
-                return None
-            interpolated_path.extend(interpolation)
-            previous_node = node
-        return iter(interpolated_path)
+        return iter(self.current_config.interpolate(self.goal_config, self.world))
 
     def draw(self):
         """
@@ -505,13 +505,10 @@ class Planner:
             self.belief_view.blit(x=x, y=y, width=width, height=height)
         # Draw configurations.
         config_batch = pyglet.graphics.Batch()
+        pyglet.gl.glLineWidth(ROBOT_LINE_WIDTH)
         self.start_config.draw(config_batch)
         self.goal_config.draw(config_batch)
-        if self.last_sampled_config is not None:
-            self.last_sampled_config.set_colour(PLANNING_COLOUR)
-            self.last_sampled_config.draw(config_batch)
         if self.current_config not in (None, self.start_config, self.goal_config):
             self.current_config.set_colour(EXECUTING_COLOUR)
             self.current_config.draw(config_batch)
-        pyglet.gl.glLineWidth(ROBOT_LINE_WIDTH)
         config_batch.draw()
