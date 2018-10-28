@@ -437,11 +437,11 @@ class Planner:
                     offset_x = uniform(-jiggle, jiggle)
                     offset_y = uniform(-jiggle, jiggle)
                     offset_theta = uniform(-jiggle, jiggle)
-                    sample_position = Point2D(sample_x + offset_x, sample_y + offset_y)
+                    sample_point = Point2D(sample_x + offset_x, sample_y + offset_y)
                     sample_heading = offset_theta
                     if direction is not None:
                         sample_heading = Vector2D(*direction).angle + offset_theta
-                    sample = self.robot.get_random_config(self.world, sample_position, sample_heading)
+                    sample = self.robot.get_random_config(self.world, sample_point, sample_heading)
                     interpolations = previous_sample.interpolate(sample, self.world)
                     # If invalid sample or failed to interpolate, continue sampling.
                     if interpolations is None or not sample.is_valid(self.world):
@@ -455,7 +455,7 @@ class Planner:
                     break
                 # Exceeded sample limit.
                 else:
-                    LOGGER.info('Got stuck during belief sampling, trying again!')
+                    LOGGER.info("Got stuck during belief sampling, trying again!")
                     exceeded_sample_limit = True
                     break
                 interpolated_path.extend(interpolations)

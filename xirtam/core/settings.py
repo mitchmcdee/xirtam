@@ -61,6 +61,8 @@ INVALID_COLOUR = (200, 50, 50)
 MAX_PERMEABILITY_COLOUR = 50
 MIN_PERMEABILITY_COLOUR = 200
 
+# TODO(mitch): add comments everywhere?
+
 # CNN + Belief modelling/sampling
 OUTPUT_BMP_DIMENSIONS = (128, 128)
 OUTPUT_VALID_COLOUR = 0
