@@ -223,7 +223,8 @@ class Planner:
             raise TrainingQualityException()
         LOGGER.info(
             f"Got to goal! Took {self.num_steps} steps in {self.num_attempts} attempts "
-            + f"travelling {self.run_distance:.2f} metres in {self.run_time:.2f} seconds!"
+            + f"travelling {self.run_distance:.2f} metres in {self.run_time:.2f} seconds "
+            + f"to reach the goal for world {self.world.__hash__()}!"
         )
         self.is_complete = True
         self.update_current_belief()
