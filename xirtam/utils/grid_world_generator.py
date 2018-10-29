@@ -64,11 +64,11 @@ def process_generation_args(test_id, *args, **kwargs):
     Processes simulation args to determine whether test case generation is required.
     Performs generation if necessary and returns the modified args.
     """
-    is_generating = kwargs.pop("generate_case")
-    if is_generating:
+    is_generating = kwargs.pop("generate")
+    world_path = kwargs.get("world_path")
+    motion_path = kwargs.get("motion_path")
+    if world_path is None or motion_path is None:
         robot_path = kwargs.get("robot_path")
-        world_path = kwargs.get("world_path")
-        motion_path = kwargs.get("motion_path")
         output_path = kwargs.get("output_path")
         temp_directory = os.path.join(output_path, "tmp/")
         # Make temp directory if it doesn't already exist
@@ -78,6 +78,7 @@ def process_generation_args(test_id, *args, **kwargs):
         motion_path = os.path.join(temp_directory, f"training-{test_id}.motion")
         kwargs["world_path"] = world_path
         kwargs["motion_path"] = motion_path
+    if is_generating:
         generator_args = ["-w", world_path, "-m", motion_path, "-r", robot_path]
         grid_generator(generator_args)
     return args, kwargs

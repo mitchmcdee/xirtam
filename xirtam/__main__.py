@@ -19,7 +19,7 @@ manager_args = {
     "motion_path": parsed_args.motion_path,
     "output_path": parsed_args.output_path,
     "model_path": parsed_args.model_path,
-    "generate_case": parsed_args.generate_case,
+    "generate": parsed_args.generate,
 }
 # Run manager
 if parsed_args.trainer:

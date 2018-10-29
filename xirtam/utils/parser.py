@@ -19,9 +19,6 @@ class SimulationParser(argparse.ArgumentParser):
             "-t", "--trainer", action="store_true", help="Run trainer"
         )
         self.add_argument(
-            "-g", "--generate_case", action="store_true", help="Generate a random test case"
-        )
-        self.add_argument(
             "-r",
             "--robot_path",
             type=str,
@@ -31,18 +28,7 @@ class SimulationParser(argparse.ArgumentParser):
         self.add_argument(
             "-o", "--output_path", type=str, help="Path to output folder", default="./out/"
         )
-        self.add_argument(
-            "-w",
-            "--world_path",
-            type=str,
-            help="Path to world file",
-            default="./examples/simple.world",
-        )
-        self.add_argument(
-            "-m",
-            "--motion_path",
-            type=str,
-            help="Path to motion file",
-            default="./examples/simple.motion",
-        )
+        self.add_argument("-g", "--generate", action="store_true", help="Generate a random map")
+        self.add_argument("-w", "--world_path", type=str, help="Path to world file")
+        self.add_argument("-m", "--motion_path", type=str, help="Path to motion file")
         self.add_argument("-n", "--model_path", type=str, help="Path to neural net model file")
