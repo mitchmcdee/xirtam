@@ -95,10 +95,9 @@ class RobotConfig:
     A particular config for a robot representing an explicit position and pose in space.
     """
 
-    # Configuration is valid until proven otherwise.
-    valid = True
-
     def __init__(self, robot, position, heading, foot_vertices, colour) -> None:
+        # Configuration is valid until proven otherwise.
+        self.valid = True
         if isinstance(position, tuple):
             position = Point2D(*position)
         self.robot = robot

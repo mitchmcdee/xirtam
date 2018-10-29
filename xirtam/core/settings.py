@@ -115,7 +115,7 @@ OUTPUT_INVALID_COLOUR = 255
 # Image output limit before trainer is killed.
 OUTPUT_LIMIT = inf
 # Time in seconds before trainer is killed.
-TIME_LIMIT = 5 * 60
+TIME_LIMIT = inf
 # Width and height of the belief graph.
 BELIEF_DIMENSIONS = (64, 64)
 # Number of colours to include in the traversable belief graph.

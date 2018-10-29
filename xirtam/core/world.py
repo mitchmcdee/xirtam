@@ -61,25 +61,24 @@ class World(Rectangle):
     An interactable virtual world.
     """
 
-    # Collection of region tiles in the world.
-    regions = []  # type: List[WorldRegion]
-    # Collection of valid foot placements in the world.
-    valid_placements = []  # type: List[Circle]
-    # Collection of invalid foot placements in the world.
-    invalid_placements = []  # type: List[Circle]
-    # Region draw batch.
-    region_batch = Batch()
-    # Region draw batch.
-    placements_batch = Batch()
-
     def __init__(self, world_path):
-        # Parse world file
+        # Collection of region tiles in the world.
+        self.regions = []  # type: List[WorldRegion]
+        # Collection of valid foot placements in the world.
+        self.valid_placements = []  # type: List[Circle]
+        # Collection of invalid foot placements in the world.
+        self.invalid_placements = []  # type: List[Circle]
+        # Region draw batch.
+        self.region_batch = Batch()
+        # Region draw batch.
+        self.placements_batch = Batch()
+        # Parse world files
         with open(world_path) as world_file:
             world_reader = csv.reader(world_file)
             get_world_row = get_coerced_reader_row_helper(world_reader, world_path)
             super().__init__(*get_world_row([float] * 4, "world bounding box"))
-            num_region = get_world_row([int], "# of regions")
-            for _ in range(num_region):
+            num_regions = get_world_row([int], "# of regions")
+            for _ in range(num_regions):
                 permeability = get_world_row([float], "region permeability")
                 region_bounding_box = get_world_row([float] * 4, "region bounding box")
                 self.regions.append(WorldRegion(permeability, *region_bounding_box))

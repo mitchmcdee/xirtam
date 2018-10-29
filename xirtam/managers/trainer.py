@@ -27,7 +27,7 @@ class Trainer:
         signal.signal(signal.SIGINT, self.on_close)
         self.model = Model(*args, **kwargs)
         self.last_tick = perf_counter()
-        LOGGER.info(f"Running trainer #{trainer_num}!")
+        LOGGER.info(f"Running trainer #{trainer_num} on world {self.model.world.__hash__()}!")
 
     def on_close(self, *args, **kwargs):
         """

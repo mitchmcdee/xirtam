@@ -82,51 +82,48 @@ class Planner:
     A robot path planner that executes paths influenced by a core belief of the environment.
     """
 
-    # Constants
     # Directions connecting cells in a grid.
     # In order: left, right, up, down, bottom-right, bottom-left, top-right, top-left.
     DIRECTIONS = ((-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1))
 
-    # Variables
-    # Time taken during this training run.
-    total_time = 0
-    # Number of images the planner has output.
-    output_count = 0
-    # Execution FPS.
-    execution_fps = EXECUTION_FPS_LIMIT / 2
-    # Amount of time in seconds since the last execution move.
-    last_execution = 0
-    # Boolean representing whether the planner is paused.
-    is_paused = False
-    # Boolean representing whether the planner has started planning.
-    is_started = False
-    # Boolean representing whether the planner is currently executing.
-    is_executing = False
-    # Boolean representing whether the planner has gotten to goal.
-    is_complete = False
-    # Current configuration in the execution sequence.
-    current_config = None
-    # Motion plan start configuration.
-    start_config = None
-    # List of configurations since the last valid "checkpoint" configuration.
-    # Note: A checkpoint configuration is one that occurs every NUM_LEGS + body configurations.
-    previous_configs = []  # type: List["RobotConfig"]
-    # View of the current world belief, if any.
-    belief_view = None
-    # Graph containing potentially connected belief regions
-    belief_graph = nx.DiGraph()
-    # Neural belief model.
-    model = None
-    # Number of path execution attempts made during this training run.
-    num_attempts = 0
-    # Number of steps taken during this training run.
-    num_steps = 0
-    # Distance travelled during this training run.
-    run_distance = 0
-    # Amount of time in seconds since the planner has started.
-    run_time = 0
-
     def __init__(self, robot, world, motion_path, output_path, model_path):
+        # Time taken during this training run.
+        self.total_time = 0
+        # Number of images the planner has output.
+        self.output_count = 0
+        # Execution FPS.
+        self.execution_fps = EXECUTION_FPS_LIMIT / 2
+        # Amount of time in seconds since the last execution move.
+        self.last_execution = 0
+        # Boolean representing whether the planner is paused.
+        self.is_paused = False
+        # Boolean representing whether the planner has started planning.
+        self.is_started = False
+        # Boolean representing whether the planner is currently executing.
+        self.is_executing = False
+        # Boolean representing whether the planner has gotten to goal.
+        self.is_complete = False
+        # Current configuration in the execution sequence.
+        self.current_config = None
+        # Motion plan start configuration.
+        self.start_config = None
+        # List of configurations since the last valid "checkpoint" configuration.
+        # Note: A checkpoint configuration is one that occurs every NUM_LEGS + body configurations.
+        self.previous_configs = []  # type: List["RobotConfig"]
+        # View of the current world belief, if any.
+        self.belief_view = None
+        # Graph containing potentially connected belief regions
+        self.belief_graph = nx.DiGraph()
+        # Neural belief model.
+        self.model = None
+        # Number of path execution attempts made during this training run.
+        self.num_attempts = 0
+        # Number of steps taken during this training run.
+        self.num_steps = 0
+        # Distance travelled during this training run.
+        self.run_distance = 0
+        # Amount of time in seconds since the planner has started.
+        self.run_time = 0
         self.start_config, self.goal_config = self.get_motion_config(robot, motion_path)
         self.robot = robot
         self.world = world
