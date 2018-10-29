@@ -9,6 +9,8 @@ TimTamNet is a fully convolutional neural network designed to learn the mapping 
 - `pip3 install -r requirements.txt`
 
 # Running
+_Note: Additional settings can be found and manipulated in `xirtam/core/settings.py`!_
+
 For usage help:
 ```bash
 python3 -m xirtam --help
