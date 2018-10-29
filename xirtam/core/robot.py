@@ -288,6 +288,12 @@ class RobotConfig:
         # Check that the robot doesn't collide with any invalid regions.
         return not world.intersects_invalid(self)
 
+    def distance_to(self, other: "RobotConfig") -> float:
+        """
+        Returns the distance to the other configuration.
+        """
+        return self.position.distance_to(other.position)
+
     def get_point_along_body(self, distance_from_front: float):
         """
         Get the point at the given distance from the front of the body.

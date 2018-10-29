@@ -1,7 +1,7 @@
 """
 General and specific settings for running and controlling the simulation environment.
 """
-from logging import INFO
+import logging
 import pyglet
 from enum import Enum
 
@@ -44,7 +44,7 @@ class Command(Enum):
 
 # Logging
 # Minimum level to log.
-LOG_LEVEL = INFO
+LOG_LEVEL = logging.INFO
 
 # Camera
 # Movement speed for camera control.
@@ -109,6 +109,12 @@ OUTPUT_VALID_COLOUR = 0
 OUTPUT_DEFAULT_COLOUR = 55
 # Output greyscale value for invalid foot placements.
 OUTPUT_INVALID_COLOUR = 255
+
+# Planning/Training
+# Image output limit before trainer is killed.
+OUTPUT_LIMIT = 50
+# Time in seconds before trainer is killed.
+TIME_LIMIT = 5 * 60
 # Width and height of the belief graph.
 BELIEF_DIMENSIONS = (64, 64)
 # Number of colours to include in the traversable belief graph.

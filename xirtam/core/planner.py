@@ -32,6 +32,8 @@ from xirtam.core.settings import (
     FPS_JUMP,
     JIGGLE_FACTOR,
     SAMPLE_LIMIT,
+    OUTPUT_LIMIT,
+    TIME_LIMIT,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -81,25 +83,19 @@ class Planner:
     """
 
     # Constants
-    # Graph size limit before it is reset.
-    GRAPH_SIZE_LIMIT = 20
-    # Image output limit before trainer is killed.
-    OUTPUT_LIMIT = 50
-    # Time before trainer is killed.
-    TIME_LIMIT = 5 * 60
     # Directions connecting cells in a grid.
     # In order: left, right, up, down, bottom-right, bottom-left, top-right, top-left.
     DIRECTIONS = ((-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1))
 
     # Variables
-    # Amount of time in seconds since the planner has started.
-    run_time = 0
+    # Time taken during this training run.
+    total_time = 0
     # Number of images the planner has output.
     output_count = 0
-    # Execution fps limit.
-    fps_limit = EXECUTION_FPS_LIMIT / 2
+    # Execution FPS.
+    execution_fps = EXECUTION_FPS_LIMIT / 2
     # Amount of time in seconds since the last execution move.
-    time_since_last_execute = 0
+    last_execution = 0
     # Boolean representing whether the planner is paused.
     is_paused = False
     # Boolean representing whether the planner has started planning.
@@ -119,10 +115,16 @@ class Planner:
     belief_view = None
     # Graph containing potentially connected belief regions
     belief_graph = nx.DiGraph()
-    # Number of path execution attempts made during this training run.
-    num_attempts = 0
     # Neural belief model.
     model = None
+    # Number of path execution attempts made during this training run.
+    num_attempts = 0
+    # Number of steps taken during this training run.
+    num_steps = 0
+    # Distance travelled during this training run.
+    run_distance = 0
+    # Amount of time in seconds since the planner has started.
+    run_time = 0
 
     def __init__(self, robot, world, motion_path, output_path, model_path):
         self.start_config, self.goal_config = self.get_motion_config(robot, motion_path)
@@ -162,9 +164,9 @@ class Planner:
         """
         Initialise planner.
         """
-        self.fps_limit = EXECUTION_FPS_LIMIT / 2
-        self.time_since_last_execute = 0
-        self.num_attempts = 0
+        self.execution_fps = EXECUTION_FPS_LIMIT / 2
+        self.last_execution = 0
+        self.num_attempts = self.run_distance = self.num_steps = self.run_time = 0
         self.is_paused = self.is_started = self.is_executing = self.is_complete = False
         self.current_config = self.start_config
         self.previous_configs = []
@@ -184,13 +186,13 @@ class Planner:
         """
         Handle the user attempting to increase the speed of the simulation.
         """
-        self.fps_limit = min(EXECUTION_FPS_LIMIT, self.fps_limit + FPS_JUMP)
+        self.execution_fps = min(EXECUTION_FPS_LIMIT, self.execution_fps + FPS_JUMP)
 
     def handle_decrease_fps(self):
         """
         Handle the user attempting to decrease the speed of the simulation.
         """
-        self.fps_limit = max(sys.float_info.epsilon, self.fps_limit - FPS_JUMP)
+        self.execution_fps = max(sys.float_info.epsilon, self.execution_fps - FPS_JUMP)
 
     def handle_reset(self):
         """
@@ -219,7 +221,10 @@ class Planner:
         if is_training and self.num_attempts == 0:
             LOGGER.info("Pointless training sample, quitting!")
             raise TrainingQualityException()
-        LOGGER.info("Got to goal!")
+        LOGGER.info(
+            f"Got to goal! Took {self.num_steps} steps in {self.num_attempts} attempts "
+            + f"travelling {self.run_distance:.2f} metres in {self.run_time:.2f} seconds!"
+        )
         self.is_complete = True
         self.update_current_belief()
         if is_training:
@@ -246,8 +251,9 @@ class Planner:
         self.belief_graph.clear()
         if belief is None:
             belief = self.get_belief()
+        self.set_belief_view(belief)
         # Down sample image.
-        belief = imresize(belief, BELIEF_DIMENSIONS, interp="bicubic").flatten()
+        belief = imresize(belief, BELIEF_DIMENSIONS, interp="bilinear")
         # Reduce colour depth.
         reduce_depth = partial(
             translate,
@@ -256,17 +262,7 @@ class Planner:
             right_min=0,
             right_max=BELIEF_LEVELS - 1,
         )
-        belief = np.array(list(map(reduce_depth, belief))).astype(int).reshape(BELIEF_DIMENSIONS)
-        increase_depth = partial(
-            translate, left_min=np.min(belief), left_max=np.max(belief), right_min=0, right_max=255
-        )
-        belief_view = (
-            np.array(list(map(increase_depth, belief.flatten())))
-            .astype(int)
-            .reshape(BELIEF_DIMENSIONS)
-        )
-        # TODO(mitch): double check this is where you want this. defs bicubic? either way, clean this up.
-        self.set_belief_view(belief_view)
+        belief = np.array(list(map(int, map(reduce_depth, belief.flatten())))).reshape(belief.shape)
         # Set belief weights.
         for y, row in enumerate(belief):
             for x, belief_level in enumerate(row):
@@ -294,11 +290,12 @@ class Planner:
         """
         Perform an update given the elapsed time.
         """
+        self.total_time += delta_time
         self.run_time += delta_time
-        if is_training and self.run_time >= self.TIME_LIMIT:
+        if is_training and self.total_time >= TIME_LIMIT:
             LOGGER.info("Reached time limit, quitting!")
             raise TimeLimitException()
-        if is_training and self.output_count >= self.OUTPUT_LIMIT:
+        if is_training and self.output_count >= OUTPUT_LIMIT:
             LOGGER.info("Reached output limit, quitting!")
             raise OutputLimitException()
         if self.is_complete or self.is_paused or not self.is_started:
@@ -312,19 +309,17 @@ class Planner:
         """
         Perform a single iteration of execution.
         """
-        self.time_since_last_execute += delta_time
+        self.last_execution += delta_time
 
         # If we're not training and execution time hasn't been reached, return for now.
-        if not is_training and self.time_since_last_execute < (1 / self.fps_limit):
+        if not is_training and self.last_execution < (1 / self.execution_fps):
             return
-        self.time_since_last_execute = 0
+        self.last_execution = 0
 
         # If we're at goal, completed.
         if self.current_config == self.goal_config:
             self.handle_complete(is_training)
             return
-
-        # TODO(mitch): document total distance travelled
 
         # Sample the current config in the world for validity (i.e. check all feet can adhere).
         if self.world.is_valid_config(self.current_config):
@@ -333,7 +328,7 @@ class Planner:
                 self.previous_configs.clear()
             self.previous_configs.append(self.current_config.copy())
         else:
-            LOGGER.info("Detected invalid region! Back-tracking now.")
+            LOGGER.debug("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
             if is_training:
                 self.world.save_placements_bmp(self.robot, self.output_path)
@@ -350,7 +345,9 @@ class Planner:
             return
 
         # Take next step.
+        self.run_distance += self.current_config.distance_to(next_config)
         self.current_config = next_config
+        self.num_steps += 1
 
     def get_config_edges(self, config_a, config_b):
         """
@@ -419,51 +416,46 @@ class Planner:
 
         JIGGLE_LIMIT = max(self.world.width, self.world.height)
         JIGGLE_JUMP = JIGGLE_LIMIT / JIGGLE_FACTOR
-        while True:
-            # Sample at turning points and add their connected interpolations to path.
-            previous_sample = self.current_config
-            interpolated_path = []
-            exceeded_sample_limit = False
-            for i, ((point_x, point_y), direction) in enumerate(turning_points):
-                # Try to sample at the turning point. For every fail, increase the amount of random
-                # jiggle to try and find a valid position. This is to avoid trying to place at
-                # invalid positions and being stuck in a loop. Don't jiggle more than the world.
-                jiggle = 0.0
-                for sample_attempt in range(SAMPLE_LIMIT):
-                    # print(i, jiggle)
-                    jiggle = min(jiggle + JIGGLE_JUMP, JIGGLE_LIMIT)
-                    sample_x = translate(point_x, 0, belief_width, world_left, world_right)
-                    sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
-                    offset_x = uniform(-jiggle, jiggle)
-                    offset_y = uniform(-jiggle, jiggle)
-                    offset_theta = uniform(-jiggle, jiggle)
-                    sample_point = Point2D(sample_x + offset_x, sample_y + offset_y)
-                    sample_heading = offset_theta
-                    if direction is not None:
-                        sample_heading = Vector2D(*direction).angle + offset_theta
-                    sample = self.robot.get_random_config(self.world, sample_point, sample_heading)
-                    interpolations = previous_sample.interpolate(sample, self.world)
-                    # If invalid sample or failed to interpolate, continue sampling.
-                    if interpolations is None or not sample.is_valid(self.world):
+        # Sample at turning points and add their connected interpolations to path.
+        previous_sample = self.current_config
+        interpolated_path = []
+        exceeded_sample_limit = False
+        for i, ((point_x, point_y), direction) in enumerate(turning_points):
+            # Try to sample at the turning point. For every fail, increase the amount of random
+            # jiggle to try and find a valid position. This is to avoid trying to place at
+            # invalid positions and being stuck in a loop. Don't jiggle more than the world.
+            jiggle = 0.0
+            for sample_attempt in range(SAMPLE_LIMIT):
+                # print(i, jiggle)
+                jiggle = min(jiggle + JIGGLE_JUMP, JIGGLE_LIMIT)
+                sample_x = translate(point_x, 0, belief_width, world_left, world_right)
+                sample_y = translate(point_y, 0, belief_height, world_bottom, world_top)
+                offset_x = uniform(-jiggle, jiggle)
+                offset_y = uniform(-jiggle, jiggle)
+                offset_theta = uniform(-jiggle, jiggle)
+                sample_point = Point2D(sample_x + offset_x, sample_y + offset_y)
+                sample_heading = offset_theta
+                if direction is not None:
+                    sample_heading = Vector2D(*direction).angle + offset_theta
+                sample = self.robot.get_random_config(self.world, sample_point, sample_heading)
+                interpolations = previous_sample.interpolate(sample, self.world)
+                # If invalid sample or failed to interpolate, continue sampling.
+                if interpolations is None or not sample.is_valid(self.world):
+                    continue
+                # If we're the final turning point, ensure we can also interpolate to goal.
+                if i == len(turning_points) - 1:
+                    goal_interpolations = sample.interpolate(self.goal_config, self.world)
+                    if goal_interpolations is None:
                         continue
-                    # If we're the final turning point, ensure we can also interpolate to goal.
-                    if i == len(turning_points) - 1:
-                        goal_interpolations = sample.interpolate(self.goal_config, self.world)
-                        if goal_interpolations is None:
-                            continue
-                    # Valid sample, break.
-                    break
-                # Exceeded sample limit.
-                else:
-                    LOGGER.info("Got stuck during belief sampling, trying again!")
-                    exceeded_sample_limit = True
-                    break
-                interpolated_path.extend(interpolations)
-                previous_sample = sample
-            if exceeded_sample_limit:
-                continue
-            interpolated_path.extend(goal_interpolations)
-            break
+                # Valid sample, break.
+                break
+            # Exceeded sample limit, exit.
+            else:
+                LOGGER.debug("Got stuck during belief sampling!")
+                return None
+            interpolated_path.extend(interpolations)
+            previous_sample = sample
+        interpolated_path.extend(goal_interpolations)
         return iter(interpolated_path)
 
     def plan(self):
@@ -473,9 +465,12 @@ class Planner:
         self.update_current_belief()
         # If first attempt, try to navigate straight to goal. Else, use current belief.
         if self.num_attempts == 0:
-            self.execution_path = self.get_direct_path_to_goal()
+            execution_path = self.get_direct_path_to_goal()
         else:
-            self.execution_path = self.get_belief_path()
+            execution_path = self.get_belief_path()
+        if execution_path is None:
+            return
+        self.execution_path = execution_path
         self.is_executing = True
 
     def get_path_to_previous(self):

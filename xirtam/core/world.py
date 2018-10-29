@@ -209,7 +209,7 @@ class World(Rectangle):
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
         image.save(placements_path)
-        LOGGER.info("Saved placements!")
+        LOGGER.debug("Saved placements!")
         # Save regions for the given placement if it doesn't exist.
         self.save_regions_bmp(robot, output_directory)
 
@@ -242,4 +242,4 @@ class World(Rectangle):
                 colour = OUTPUT_INVALID_COLOUR
             draw.rectangle((left, bottom, right, top), fill=colour)
         image.save(regions_path)
-        LOGGER.info("Saved regions!")
+        LOGGER.debug("Saved regions!")
