@@ -363,7 +363,7 @@ class Planner:
 
     def get_belief_path(self):
         """
-        Returns a path to the goal config as suggested from the belief of the underlying environment.
+        Returns a path to the goal config, influenced by the belief of the underlying environment.
         """
         # Separate cells by their levels.
         level_cells = {level: [] for level in range(BELIEF_LEVELS)}
@@ -418,7 +418,6 @@ class Planner:
         # Sample at turning points and add their connected interpolations to path.
         previous_sample = self.current_config
         interpolated_path = []
-        exceeded_sample_limit = False
         for i, ((point_x, point_y), direction) in enumerate(turning_points):
             # Try to sample at the turning point. For every fail, increase the amount of random
             # jiggle to try and find a valid position. This is to avoid trying to place at
