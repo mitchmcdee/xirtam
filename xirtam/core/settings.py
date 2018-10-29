@@ -119,7 +119,7 @@ TIME_LIMIT = 5 * 60
 # Width and height of the belief graph.
 BELIEF_DIMENSIONS = (64, 64)
 # Number of colours to include in the traversable belief graph.
-BELIEF_LEVELS = 8
+BELIEF_LEVELS = 5
 # Dictates the proportion of the world to increase jiggle by every sample attempt.
 JIGGLE_FACTOR = 2000
 # Number of turning point sample attempts before restarting entire path find.

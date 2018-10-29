@@ -328,6 +328,7 @@ class Planner:
                 self.previous_configs.clear()
             self.previous_configs.append(self.current_config.copy())
         else:
+            self.update_current_belief()
             LOGGER.debug("Detected invalid region! Back-tracking now.")
             self.execution_path = self.get_path_to_previous()
             if is_training:
@@ -462,7 +463,6 @@ class Planner:
         """
         Perform a single iteration of planning.
         """
-        self.update_current_belief()
         # If first attempt, try to navigate straight to goal. Else, use current belief.
         if self.num_attempts == 0:
             execution_path = self.get_direct_path_to_goal()
