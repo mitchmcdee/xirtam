@@ -120,11 +120,11 @@ class Controller:
         if Command.TOGGLE_VIEW in self.debounced_key_handler:
             self.model.handle_toggle_view()
 
-        if Command.PLUS in self.debounced_key_handler:
-            self.model.handle_plus()
+        if Command.INCREASE_FPS in self.debounced_key_handler:
+            self.model.handle_increase_fps()
 
-        if Command.MINUS in self.debounced_key_handler:
-            self.model.handle_minus()
+        if Command.DECREASE_FPS in self.debounced_key_handler:
+            self.model.handle_decrease_fps()
 
         if Command.LEFT in self.key_handler:
             self.view.handle_left(delta_time)

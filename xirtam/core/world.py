@@ -19,8 +19,8 @@ from xirtam.utils.utils import (
     get_translated_bounds,
 )
 from xirtam.core.settings import (
-    INVALID_COLOUR,
-    VALID_COLOUR,
+    INVALID_PLACEMENT_COLOUR,
+    VALID_PLACEMENT_COLOUR,
     NUM_FOOT_POINTS,
     MIN_PERMEABILITY_COLOUR,
     MAX_PERMEABILITY_COLOUR,
@@ -149,7 +149,7 @@ class World(Rectangle):
                         EPSILON_Z,
                         config.robot.foot_radius,
                         NUM_FOOT_POINTS,
-                        VALID_COLOUR if is_valid_placement else INVALID_COLOUR,
+                        VALID_PLACEMENT_COLOUR if is_valid_placement else INVALID_PLACEMENT_COLOUR,
                     )
                 )
         return is_valid_sample

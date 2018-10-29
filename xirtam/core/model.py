@@ -40,17 +40,17 @@ class Model:
         """
         self.planner.handle_pause()
 
-    def handle_plus(self):
+    def handle_increase_fps(self):
         """
         Handle the user attempting to increase the speed of the simulation.
         """
-        self.planner.handle_plus()
+        self.planner.handle_increase_fps()
 
-    def handle_minus(self):
+    def handle_decrease_fps(self):
         """
         Handle the user attempting to decrease the speed of the simulation.
         """
-        self.planner.handle_minus()
+        self.planner.handle_decrease_fps()
 
     def handle_toggle_view(self):
         """

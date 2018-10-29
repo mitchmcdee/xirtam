@@ -18,7 +18,7 @@ from xirtam.utils.utils import (
     get_coerced_reader_row_helper,
     get_intersection_between_two_circles,
 )
-from xirtam.core.settings import NUM_FOOT_POINTS, EXECUTING_COLOUR, BODY_ALT_MODIFIER
+from xirtam.core.settings import NUM_FOOT_POINTS, EXECUTING_COLOUR, ALT_COLOUR_MULTIPLIER
 from xirtam.core.world import World
 
 LOGGER = logging.getLogger(__name__)
@@ -138,7 +138,7 @@ class RobotConfig:
         """
         Returns the alt colour of the given colour.
         """
-        return tuple([int(clamp(BODY_ALT_MODIFIER * c, 0, 255)) for c in self.colour])
+        return tuple([int(clamp(ALT_COLOUR_MULTIPLIER * c, 0, 255)) for c in self.colour])
 
     def set_colour(self, colour):
         """

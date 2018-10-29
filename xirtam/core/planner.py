@@ -180,13 +180,13 @@ class Planner:
         while self.belief_view is None and "BELIEFS" in self.visibility_state.name:
             self.visibility_state = next(self.visibility_iterator)
 
-    def handle_plus(self):
+    def handle_increase_fps(self):
         """
         Handle the user attempting to increase the speed of the simulation.
         """
         self.fps_limit = min(EXECUTION_FPS_LIMIT, self.fps_limit + FPS_JUMP)
 
-    def handle_minus(self):
+    def handle_decrease_fps(self):
         """
         Handle the user attempting to decrease the speed of the simulation.
         """
