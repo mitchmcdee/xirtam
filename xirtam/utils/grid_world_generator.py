@@ -10,7 +10,7 @@ import networkx as nx
 from xirtam.utils.utils import translate
 from xirtam.core.robot import Robot
 from xirtam.core.world import World
-from random import randrange, choice
+from random import randint, randrange, choice
 
 DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
@@ -21,7 +21,14 @@ def parse_args(args):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-r", "--robot_path", type=str, help="Path to robot file", default="./test.robot"
+        "-c", "--side_cells", type=int, help="Number of cells in each row/column of grid", default=randint(5, 25)
+    )
+    parser.add_argument(
+        "-p",
+        "--invalid_percentage",
+        type=int,
+        help="Percentage of cells in world which are invalid",
+        default=0.3,
     )
     parser.add_argument(
         "-w",
@@ -38,11 +45,7 @@ def parse_args(args):
         default="./test.motion",
     )
     parser.add_argument(
-        "-ip",
-        "--invalid_percentage",
-        type=int,
-        help="Percentage of cells in world which are invalid",
-        default=0.3,
+        "-r", "--robot_path", type=str, help="Path to robot file", default="./test.robot"
     )
     parser.add_argument(
         "-g", "--num_genesis_cells", type=int, help="Number of genesis cells in grid", default=3
@@ -53,9 +56,9 @@ def parse_args(args):
     parser.add_argument(
         "-v", "--valid_perm", type=float, help="Valid permeability amount", default=1.0
     )
-    parser.add_argument("-c", "--cell_size", type=float, help="Grid cell size", default=1.0)
-    parser.add_argument("-nr", "--num_rows", type=int, help="Number of rows in grid", default=10)
-    parser.add_argument("-nc", "--num_cols", type=int, help="Number of columns in grid", default=10)
+    parser.add_argument(
+        "-l", "--side_length", type=float, help="Side length of each cell", default=10.0
+    )
     return parser.parse_args(args)
 
 
@@ -84,20 +87,20 @@ def process_generation_args(test_id, *args, **kwargs):
     return args, kwargs
 
 
-def generate_world(num_rows, num_cols, invalid_percentage, num_genesis_cells):
+def generate_world(side_cells, invalid_percentage, num_genesis_cells):
     """
     Generates world cells to the given paramaters.
     """
 
     def is_bad_cell(cell):
         cell_x, cell_y = cell
-        return cell_x in (-1, num_cols) or cell_y in (-1, num_rows) or cell in invalid_cells
+        return cell_x in (-1, side_cells) or cell_y in (-1, side_cells) or cell in invalid_cells
 
     invalid_cells = []
     # Add genesis cells
     for _ in range(num_genesis_cells):
-        invalid_cells.append((randrange(0, num_cols), randrange(0, num_rows)))
-    max_invalid_cells = int(invalid_percentage * num_rows * num_cols)
+        invalid_cells.append((randrange(0, side_cells), randrange(0, side_cells)))
+    max_invalid_cells = int(invalid_percentage * side_cells * side_cells)
     # Place invalid cells while under limit.
     while len(invalid_cells) < max_invalid_cells:
         seed_x, seed_y = choice(invalid_cells)
@@ -125,27 +128,25 @@ def generate_world(num_rows, num_cols, invalid_percentage, num_genesis_cells):
                 invalid_cells.append(neighbour_cell)
     # Draw up grid and return. Reverse row order to make bottom left the origin.
     return [
-        [1 if (i, j) in invalid_cells else 0 for i in range(num_cols)]
-        for j in reversed(range(num_rows))
+        [1 if (i, j) in invalid_cells else 0 for i in range(side_cells)]
+        for j in reversed(range(side_cells))
     ]
 
 
-def save_world(world_cells, output_path, cell_size, valid_perm, invalid_perm):
+def save_world(world_cells, output_path, side_length, valid_perm, invalid_perm):
     """
     Writes the given world to its output file.
     """
     with open(output_path, "w") as output_file:
         x, y = (0, 0)
-        num_rows = len(world_cells)
-        num_cols = len(world_cells[0])
-        width = num_cols * cell_size
-        height = num_rows * cell_size
+        side_cells = len(world_cells)
+        cell_size = side_length / side_cells
         # World left, bottom, width, height
-        output_file.write(f"{x}, {y}, {width}, {height}\n")
+        output_file.write(f"{x}, {y}, {side_length}, {side_length}\n")
         # Number of cells (i.e. regions)
-        output_file.write(f"{num_rows * num_cols}\n")
-        for j, bottom in enumerate(np.linspace(y, y + height, num_rows, endpoint=False)):
-            for i, left in enumerate(np.linspace(x, x + width, num_cols, endpoint=False)):
+        output_file.write(f"{side_cells ** 2}\n")
+        for j, bottom in enumerate(np.linspace(y, y + side_length, side_cells, endpoint=False)):
+            for i, left in enumerate(np.linspace(x, x + side_length, side_cells, endpoint=False)):
                 # Region permeability
                 permeability = invalid_perm if world_cells[j][i] else valid_perm
                 output_file.write(f"{permeability}\n")
@@ -157,19 +158,18 @@ def generate_motion(robot, world, world_cells):
     """
     Generates a random motion plan for the given robot in the given world.
     """
-    num_rows = len(world_cells)
-    num_cols = len(world_cells[0])
+    side_cells = len(world_cells)
     # Build world graph for cell connectivity.
     graph = nx.Graph()
-    for x in range(num_cols):
-        for y in range(num_rows):
+    for x in range(side_cells):
+        for y in range(side_cells):
             cell = (x, y)
             if world_cells[y][x]:
                 continue
             for delta_x, delta_y in DIRECTIONS:
                 neighbour = (x + delta_x, y + delta_y)
                 neighbour_x, neighbour_y = neighbour
-                if neighbour_x in (-1, num_cols) or neighbour_y in (-1, num_rows):
+                if neighbour_x in (-1, side_cells) or neighbour_y in (-1, side_cells):
                     continue
                 if world_cells[neighbour_y][neighbour_x]:
                     continue
@@ -191,11 +191,11 @@ def generate_motion(robot, world, world_cells):
         if start_config.interpolate(goal_config, world) is None:
             continue
         world_left, world_top, world_right, world_bottom = world.bounds
-        start_x = int(translate(start_config.x, world_left, world_right, 0, num_cols))
-        start_y = int(translate(start_config.y, world_bottom, world_top, 0, num_rows))
+        start_x = int(translate(start_config.x, world_left, world_right, 0, side_cells))
+        start_y = int(translate(start_config.y, world_bottom, world_top, 0, side_cells))
         start_cell = (start_x, start_y)
-        goal_x = int(translate(goal_config.x, world_left, world_right, 0, num_cols))
-        goal_y = int(translate(goal_config.y, world_bottom, world_top, 0, num_rows))
+        goal_x = int(translate(goal_config.x, world_left, world_right, 0, side_cells))
+        goal_y = int(translate(goal_config.y, world_bottom, world_top, 0, side_cells))
         goal_cell = (goal_x, goal_y)
         if nx.has_path(graph, start_cell, goal_cell):
             if len(nx.shortest_path(graph, start_cell, goal_cell)) > 2:
@@ -226,11 +226,9 @@ def grid_generator(generator_args):
     """
     args = parse_args(generator_args)
     robot = Robot(args.robot_path)
-    world_cells = generate_world(
-        args.num_rows, args.num_cols, args.invalid_percentage, args.num_genesis_cells
-    )
+    world_cells = generate_world(args.side_cells, args.invalid_percentage, args.num_genesis_cells)
     save_world(
-        world_cells, args.world_output_path, args.cell_size, args.valid_perm, args.invalid_perm
+        world_cells, args.world_output_path, args.side_length, args.valid_perm, args.invalid_perm
     )
     world = World(args.world_output_path)
     motion_plan = generate_motion(robot, world, world_cells)
