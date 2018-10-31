@@ -27,13 +27,9 @@ To generate a random map:
 ```bash
 python3 -m xirtam -s -g
 ```
-To specify a specific robot file:
+To split generated data into training and test sets (necessary for training):
 ```bash
-python3 -m xirtam -s -r example.robot
-```
-To specify a specific world/motion file:
-```bash
-python3 -m xirtam -s -w example.world -m example.motion
+python3 xirtam/neural/split_util.py -r path/to/robot_dir/
 ```
 To utilise a trained TimTamNet model:
 ```bash
@@ -41,7 +37,7 @@ python3 -m xirtam -s -n model.hdf5
 ```
 To train a TimTamNet model:
 ```bash
-python3 xirtam/neural/train.py -r ./path/to/images/
+python3 xirtam/neural/train.py -r path/to/robot_dir/
 ```
 To debug and view the results of a TimTamNet model:
 ```bash
