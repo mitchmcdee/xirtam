@@ -21,7 +21,11 @@ def parse_args(args):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-c", "--side_cells", type=int, help="Number of cells in each row/column of grid", default=randint(5, 25)
+        "-c",
+        "--side_cells",
+        type=int,
+        help="Number of cells in each row/column of grid",
+        default=randint(5, 25),
     )
     parser.add_argument(
         "-p",
@@ -45,7 +49,7 @@ def parse_args(args):
         default="./test.motion",
     )
     parser.add_argument(
-        "-r", "--robot_path", type=str, help="Path to robot file", default="./test.robot"
+        "-r", "--robot_path", type=str, help="Path to robot file", default="./magneto.robot"
     )
     parser.add_argument(
         "-g", "--num_genesis_cells", type=int, help="Number of genesis cells in grid", default=3
@@ -70,8 +74,8 @@ def process_generation_args(test_id, *args, **kwargs):
     is_generating = kwargs.pop("generate")
     world_path = kwargs.get("world_path")
     motion_path = kwargs.get("motion_path")
+    robot_path = kwargs.get("robot_path")
     if world_path is None or motion_path is None:
-        robot_path = kwargs.get("robot_path")
         output_path = kwargs.get("output_path")
         temp_directory = os.path.join(output_path, "tmp/")
         # Make temp directory if it doesn't already exist
