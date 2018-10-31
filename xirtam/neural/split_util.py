@@ -12,7 +12,9 @@ def parse_args():
     Parses data splitter CLI arguments.
     """
     parser = ArgumentParser()
-    parser.add_argument("-r", "--robot_dir_path", type=str, help="Path to robot directory", required=True)
+    parser.add_argument(
+        "-r", "--robot_dir_path", type=str, help="Path to robot directory", required=True
+    )
     parser.add_argument("-t", "--test_split", type=float, help="Test set split", default=0.1)
     return parser.parse_args()
 
