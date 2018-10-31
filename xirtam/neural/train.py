@@ -65,12 +65,10 @@ def train(robot_dir_path, log_dir_path, model_dir_path, epochs, batch_size, opti
     # Make model directory if it doesn't already exist.
     if not os.path.exists(model_dir_path):
         os.makedirs(model_dir_path)
-    model_output_path = os.path.join(model_dir_path, "weights.{epoch:02d}-{val_loss:.6f}.hdf5")
+    model_output_path = os.path.join(model_dir_path, "timtamnet.{epoch:02d}-{val_loss:.6f}.hdf5")
     # Setup callbacks.
     tensorboard = TensorBoard(log_dir=log_dir_path, write_graph=False)
-    checkpoint = ModelCheckpoint(
-        model_output_path, verbose=1, mode="min", save_best_only=True, save_weights_only=True
-    )
+    checkpoint = ModelCheckpoint(model_output_path, verbose=1, save_best_only=True)
     callbacks_list = [checkpoint, tensorboard]
     # Get training/test data.
     x_train, x_test, y_train, y_test = get_data(robot_dir_path)
