@@ -13,13 +13,14 @@ from enum import Enum
 from random import uniform
 from itertools import cycle
 from scipy.misc import imresize
+from collections import defaultdict
 from functools import partial
 from typing import List  # noqa: F401
 from xirtam.utils.geometry.point2d import Point2D
 from xirtam.utils.geometry.vector2d import Vector2D
 from xirtam.core.robot import RobotConfig, Robot
 from xirtam.utils.utils import get_coerced_reader_row_helper, translate
-from xirtam.neural.timtamnet import TimTamNet
+from keras.models import load_model
 from xirtam.core.settings import (
     START_COLOUR,
     GOAL_COLOUR,
@@ -131,8 +132,7 @@ class Planner:
         if model_path is None:
             self.get_belief = self.get_occupancy_belief
         else:
-            self.model = TimTamNet(input_shape=(*OUTPUT_BMP_DIMENSIONS, 1))
-            self.model.load_weights(model_path)
+            self.model = load_model(model_path)
             self.get_belief = self.get_neural_belief
         output_directory = f"robot-{self.robot.__hash__()}/world-{self.world.__hash__()}"
         self.output_path = os.path.join(output_path, output_directory)
@@ -250,17 +250,10 @@ class Planner:
         if belief is None:
             belief = self.get_belief()
         self.set_belief_view(belief)
-        # Down sample image.
+        # Down sample and quantize image.
         belief = imresize(belief, BELIEF_DIMENSIONS, interp="bilinear")
-        # Reduce colour depth.
-        reduce_depth = partial(
-            translate,
-            left_min=np.min(belief),
-            left_max=np.max(belief),
-            right_min=0,
-            right_max=BELIEF_LEVELS - 1,
-        )
-        belief = np.array(list(map(int, map(reduce_depth, belief.flatten())))).reshape(belief.shape)
+        level_bins = np.linspace(np.min(belief), np.max(belief), BELIEF_LEVELS)
+        belief = np.digitize(belief.flat, level_bins).reshape(belief.shape)
         # Set belief weights.
         for y, row in enumerate(belief):
             for x, belief_level in enumerate(row):
@@ -366,7 +359,7 @@ class Planner:
         Returns a path to the goal config, influenced by the belief of the underlying environment.
         """
         # Separate cells by their levels.
-        level_cells = {level: [] for level in range(BELIEF_LEVELS)}
+        level_cells = defaultdict(list)
         for cell, cell_data in self.belief_graph.nodes(data=True):
             belief_level = cell_data["weight"]
             level_cells[belief_level].append(cell)
