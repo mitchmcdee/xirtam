@@ -8,6 +8,26 @@ from tqdm import tqdm
 from skimage.io import imread
 
 
+def get_data_shape(robot_dir):
+    """
+    Retrieves the shape of the training/test data from the given robot directory. If
+    no data could be found, returns None.
+    """
+    for data_type in ("train", "test"):
+        data_dir = join(robot_dir, data_type)
+        for world_name in listdir(data_dir):
+            if "world" not in world_name:
+                continue
+            world_dir = join(data_dir, world_name)
+            for file_name in listdir(world_dir):
+                _, extension = splitext(file_name)
+                if extension != ".bmp":
+                    continue
+                image = imread(join(world_dir, file_name), as_gray=True)
+                return (*image.shape, 1)
+    return None
+
+
 def get_data(robot_dir):
     """
     Retrives the training/test data from the given robot directory.

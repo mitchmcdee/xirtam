@@ -5,7 +5,7 @@ import os
 import argparse
 from keras.callbacks import ModelCheckpoint, TensorBoard
 from timtamnet import TimTamNet
-from utils import get_data
+from utils import get_data, get_data_shape
 
 
 def parse_args():
@@ -70,13 +70,13 @@ def train(robot_dir_path, log_dir_path, model_dir_path, epochs, batch_size, opti
     tensorboard = TensorBoard(log_dir=log_dir_path, write_graph=False)
     checkpoint = ModelCheckpoint(model_path, verbose=1, save_best_only=True, monitor="val_acc")
     callbacks_list = [checkpoint, tensorboard]
-    # Get training/test data.
-    x_train, x_test, y_train, y_test = get_data(robot_dir_path)
-    input_shape = x_train.shape[1:]
-    # Create, compile and fit TimTamNet.
-    model = TimTamNet(input_shape=input_shape)
+    # Create and compile TimTamNet.
+    model = TimTamNet(input_shape=get_data_shape(robot_dir_path))
     model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["acc"])
     model.summary()
+    # Get training/test data.
+    x_train, x_test, y_train, y_test = get_data(robot_dir_path)
+    # Fit TimTamNet to data.
     model.fit(
         x=x_train,
         y=y_train,
