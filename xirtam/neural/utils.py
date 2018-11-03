@@ -28,7 +28,7 @@ def get_data_shape(robot_dir):
     return None
 
 
-def get_data(robot_dir):
+def get_data(robot_dir, get_train_data=True, get_test_data=True):
     """
     Retrives the training/test data from the given robot directory.
     """
@@ -37,6 +37,10 @@ def get_data(robot_dir):
     x_test = []
     y_test = []
     for data_type in ("train", "test"):
+        if data_type == "train" and get_train_data is False:
+            continue
+        if data_type == "test" and get_test_data is False:
+            continue
         data_dir = join(robot_dir, data_type)
         data_x = x_train if data_type == "train" else x_test
         data_y = y_train if data_type == "train" else y_test
