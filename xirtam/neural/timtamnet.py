@@ -15,7 +15,8 @@ def fire_module(fire_id, num_squeeze, num_expand):
     right = Conv2D(num_expand, (1, 1), activation="relu", name=f"{name}/expand_1x1")
 
     def fire_module_wrapper(x):
-        return concatenate([left(squeeze(x)), right(squeeze(x))])
+        squeezed = squeeze(x)
+        return concatenate([left(squeezed), right(squeezed)])
 
     return fire_module_wrapper
 
