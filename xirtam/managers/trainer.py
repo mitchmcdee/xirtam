@@ -7,7 +7,11 @@ import logging
 from time import sleep, perf_counter
 from multiprocessing import Process, cpu_count
 from xirtam.core.model import Model
-from xirtam.core.planner import OutputLimitException, TimeLimitException, TrainingQualityException
+from xirtam.core.planner import (
+    TrainingCompletedException,
+    TimeLimitException,
+    TrainingQualityException,
+)
 from xirtam.core.settings import LOG_LEVEL
 from xirtam.utils.grid_world_generator import process_generation_args
 
@@ -66,7 +70,7 @@ class TrainerManager:
         while True:
             try:
                 Trainer(trainer_num, *args, **kwargs).run()
-            except (OutputLimitException, TimeLimitException, TrainingQualityException):
+            except (TrainingCompletedException, TimeLimitException, TrainingQualityException):
                 continue
 
     def on_close(self, *args, **kwargs):

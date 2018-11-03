@@ -39,9 +39,9 @@ LOGGER = logging.getLogger(__name__)
 LEGS = range(Robot.NUM_LEGS)
 
 
-class OutputLimitException(Exception):
+class TrainingCompletedException(Exception):
     """
-    Raised when a trainer has reached its image output limit.
+    Raised when a robot has reached the goal during training.
     """
 
     pass
@@ -58,6 +58,7 @@ class TimeLimitException(Exception):
 class TrainingQualityException(Exception):
     """
     Raised when a trainer has determined the current map is of insufficient training quality.
+    Note: This usually occurs when the robot can reach the goal in one movement.
     """
 
     pass
@@ -88,8 +89,6 @@ class Planner:
     def __init__(self, robot, world, motion_path, output_path, model_path):
         # Time taken during this training run.
         self.total_time = 0
-        # Number of images the planner has output.
-        self.output_count = 0
         # Execution FPS.
         self.execution_fps = EXECUTION_FPS_LIMIT / 2
         # Amount of time in seconds since the last execution move.
@@ -226,11 +225,8 @@ class Planner:
         if is_training:
             # Save final placements.
             self.world.save_placements_bmp(self.robot, self.output_path)
-            self.output_count += 1
-            # Restart training immediately.
-            self.world.handle_reset()
-            self.handle_reset()
-            self.handle_start()
+            LOGGER.info("Reached goal, quitting!")
+            raise TrainingCompletedException()
 
     def set_belief_view(self, belief):
         """
@@ -284,9 +280,6 @@ class Planner:
         if is_training and self.total_time >= TIME_LIMIT:
             LOGGER.info("Reached time limit, quitting!")
             raise TimeLimitException()
-        if is_training and self.output_count >= OUTPUT_LIMIT:
-            LOGGER.info("Reached output limit, quitting!")
-            raise OutputLimitException()
         if self.is_complete or self.is_paused or not self.is_started:
             return
         if self.is_executing:
@@ -322,7 +315,6 @@ class Planner:
             self.execution_path = self.get_path_to_previous()
             if is_training:
                 self.world.save_placements_bmp(self.robot, self.output_path)
-                self.output_count += 1
 
         # Get next execution step.
         next_config = next(self.execution_path, None)
