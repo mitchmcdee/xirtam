@@ -14,7 +14,6 @@ from random import uniform
 from itertools import cycle
 from scipy.misc import imresize
 from collections import defaultdict
-from functools import partial
 from typing import List  # noqa: F401
 from xirtam.utils.geometry.point2d import Point2D
 from xirtam.utils.geometry.vector2d import Vector2D
@@ -27,7 +26,6 @@ from xirtam.core.settings import (
     EXECUTING_COLOUR,
     ROBOT_LINE_WIDTH,
     EXECUTION_FPS_LIMIT,
-    OUTPUT_BMP_DIMENSIONS,
     BELIEF_DIMENSIONS,
     BELIEF_LEVELS,
     FPS_JUMP,
