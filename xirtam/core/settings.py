@@ -45,7 +45,7 @@ class Command(Enum):
 
 # Logging
 # Minimum level to log.
-LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 
 # Camera
 # Movement speed for camera control.
@@ -112,10 +112,8 @@ OUTPUT_DEFAULT_COLOUR = 55
 OUTPUT_INVALID_COLOUR = 255
 
 # Planning/Training
-# Image output limit before trainer is killed.
-OUTPUT_LIMIT = 100
 # Time in seconds before trainer is killed.
-TIME_LIMIT = 5 * 60
+TIME_LIMIT = inf
 # Width and height of the belief graph.
 BELIEF_DIMENSIONS = (64, 64)
 # Number of colours to include in the traversable belief graph.

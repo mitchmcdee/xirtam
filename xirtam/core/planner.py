@@ -31,7 +31,6 @@ from xirtam.core.settings import (
     FPS_JUMP,
     JIGGLE_FACTOR,
     SAMPLE_LIMIT,
-    OUTPUT_LIMIT,
     TIME_LIMIT,
 )
 
@@ -213,7 +212,7 @@ class Planner:
         """
         # If path was straight to goal (i.e. no planning attempts needed), short circuit training.
         if is_training and self.num_attempts == 0:
-            LOGGER.info("Pointless training sample, quitting!")
+            LOGGER.debug("Pointless training sample, quitting!")
             raise TrainingQualityException()
         LOGGER.info(
             f"Got to goal! Took {self.num_steps} steps in {self.num_attempts} attempts "
@@ -225,7 +224,7 @@ class Planner:
         if is_training:
             # Save final placements.
             self.world.save_placements_bmp(self.robot, self.output_path)
-            LOGGER.info("Reached goal, quitting!")
+            LOGGER.debug("Reached goal, quitting!")
             raise TrainingCompletedException()
 
     def set_belief_view(self, belief):
@@ -278,7 +277,7 @@ class Planner:
         self.total_time += delta_time
         self.run_time += delta_time
         if is_training and self.total_time >= TIME_LIMIT:
-            LOGGER.info("Reached time limit, quitting!")
+            LOGGER.debug("Reached time limit, quitting!")
             raise TimeLimitException()
         if self.is_complete or self.is_paused or not self.is_started:
             return
