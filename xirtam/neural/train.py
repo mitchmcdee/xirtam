@@ -65,14 +65,14 @@ def train(robot_dir_path, log_dir_path, model_dir_path, epochs, batch_size, opti
     # Make model directory if it doesn't already exist.
     if not os.path.exists(model_dir_path):
         os.makedirs(model_dir_path)
-    model_path = os.path.join(model_dir_path, "timtamnet.{epoch:02d}-{val_acc:.4f}.hdf5")
+    model_path = os.path.join(model_dir_path, "timtamnet.{epoch:02d}-{val_loss:.4f}.hdf5")
     # Setup callbacks.
     tensorboard = TensorBoard(log_dir=log_dir_path, write_graph=False)
-    checkpoint = ModelCheckpoint(model_path, verbose=1, save_best_only=True, monitor="val_acc")
+    checkpoint = ModelCheckpoint(model_path, verbose=1, save_best_only=True)
     callbacks_list = [checkpoint, tensorboard]
     # Create and compile TimTamNet.
     model = TimTamNet(input_shape=get_data_shape(robot_dir_path))
-    model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["acc"])
+    model.compile(optimizer=optimizer, loss="mean_squared_logarithmic_error")
     model.summary()
     # Get training/test data.
     x_train, x_test, y_train, y_test = get_data(robot_dir_path)
