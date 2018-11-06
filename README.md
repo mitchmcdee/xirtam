@@ -33,7 +33,7 @@ python3 xirtam/neural/split_util.py -r path/to/robot_dir/
 ```
 To utilise a trained TimTamNet model:
 ```bash
-python3 -m xirtam -s -n model.hdf5
+python3 -m xirtam -s -n path/to/model.hdf5
 ```
 To train a TimTamNet model:
 ```bash
